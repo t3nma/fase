@@ -15,6 +15,7 @@ class IGtrie
   int* labelLeaf;
   int* labelCount;
   vector<pair<long long int, int> > enumeration;
+  bool isInit;
 
   void expand();
   void enumerateFrom(int currentNode, long long int label, long long int parLabel, int parSize, int remaining);

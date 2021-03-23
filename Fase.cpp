@@ -17,6 +17,12 @@ Fase::Fase(Graph* _g, bool _directed)
   Label::init(_g, _directed);
 }
 
+Fase::Fase(IGtrie _igtrie, Graph* _g, bool _directed)
+{
+  Fase(_g, _directed);
+  igtrie = _igtrie;
+}
+
 Fase::~Fase()
 {
   for (int i = 1; i < MAXMOTIF; i++)
@@ -55,7 +61,7 @@ void Fase::runCensus(int _K)
       for (int j = 0; j < neiNum; j++)
         if (nei[j] > i)
           vext[1][vextSz[1]++] = nei[j];
-    
+
       expandEnumeration(1, 0, 0LL);
     }
 }
@@ -98,7 +104,7 @@ void Fase::expandEnumeration(int depth, int labelNode, long long int label)
 
       int *eExcl = graph->arrayNeighbours(currentVertex);
       int eExclNum = graph->numNeighbours(currentVertex);
-      
+
       for (i = 0; i < eExclNum; i++)
       {
         if (eExcl[i] <= vsub[0])

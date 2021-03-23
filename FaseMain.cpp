@@ -85,9 +85,9 @@ void read(int argc, char **argv)
       int j = 1;
       while (argv[i][j] != '\0')
       {
-	K *= 10;
-	K += argv[i][j] - '0';
-	j++;
+        K *= 10;
+        K += argv[i][j] - '0';
+        j++;
       }
       check |= (1 << 1);
       continue;
@@ -127,7 +127,7 @@ void read(int argc, char **argv)
     {
       K = 0;
       if (check != 0)
-	printf("Warning: Incorrect number of necessary arguments provided\n");
+        printf("Warning: Incorrect number of necessary arguments provided\n");
       displayHelp();
       return;
     }
@@ -211,12 +211,12 @@ void output(Fase* fase)
 ", tm_start->tm_hour, tm_start->tm_min, tm_start->tm_sec, tm_start->tm_mday, tm_start->tm_mon + 1, 1900 + tm_start->tm_year);
   struct tm *tm_end   = localtime(&t_end);
   fprintf(f, "End of Computation: %02dh%02dm%02ds %02d/%02d/%02d\n", tm_end->tm_hour, tm_end->tm_min, tm_end->tm_sec, tm_end->tm_mday, tm_end->tm_mon + 1, 1900 + tm_end->tm_year);
-  
+
   fprintf(f, "\n\n\tResults:\n");
   fprintf(f, "Subgraph Occurrences: %lld\n", (long long int)(fase->getMotifCount() / prob));
   fprintf(f, "Subgraph Types: %d\n", fase->getTypes());
   fprintf(f, "Computation Time (ms): %0.4lf\n", Timer::elapsed());
-  
+
   if (fabs(prob - 1.0) <= 10e-7)
     fprintf(f, "\nExact Enumeration, no Sampling done\n");
   else
@@ -228,7 +228,7 @@ void output(Fase* fase)
     for (i = 0; i < K; i++)
       fprintf(f, "P[%d]: %0.3lf\%\n", i, 100 * sampProb[i]);
   }
-    
+
   if (detailed)
   {
     fprintf(f, "\n\tDetailed Output:\n");
@@ -247,6 +247,54 @@ void finish(Fase* fase)
   fclose(outFile);
 }
 
+// assuming stdin input and subgraph set size = 1
+// assuming same Fase inputs (K, dir, ...)
+void readSubgraph(Graph *g) {
+  char str[K*K+1];
+  for (int i=0; i!=K; ++i) {
+    scanf("%s", &str[i*K]);
+  }
+  GraphUtils::strToGraph(g, str, K, dir);
+}
+
+void insertSubgraph(Graph *g, IGtrie* igtrie) {
+  int depth = 1;
+  int labelNode = 0;
+  long long int label = 0LL;
+  int vsub[K];
+
+  for (int i=0; i!=K; ++i) {
+    vsub[i] = i;
+  }
+
+  Label::init(g, dir);
+
+  while (depth != K) {
+    label = Label::updateLabel(vsub, vsub[depth], depth);
+    labelNode = igtrie->insertLabel(labelNode, label, Label::repDigits(depth));
+    depth++;
+  }
+
+  igtrie->incrementLabel(labelNode, 1); // just to test against the output
+}
+
+void iter1() {
+  Graph *pattern = new GraphMatrix();
+  readSubgraph(pattern);
+
+  IGtrie *igtrie = new IGtrie();
+  igtrie->init(K);
+  insertSubgraph(pattern, igtrie);
+
+  for (auto elem: igtrie->enumerate(K)) {
+    printf("%lld: %d\n", elem.first, elem.second);
+  }
+
+  delete pattern;
+  delete igtrie;
+  fclose(outFile);
+}
+
 int main(int argc, char **argv)
 {
   init();
@@ -258,6 +306,9 @@ int main(int argc, char **argv)
     return 1;
   }
 
+  iter1();
+
+  /*
   Random::init(time(NULL));
   Fase* fase = new Fase(G, dir);
   initSamplingProbabilities(fase);
@@ -268,6 +319,7 @@ int main(int argc, char **argv)
 
   output(fase);
   finish(fase);
-  
+  */
+
   return 0;
 }

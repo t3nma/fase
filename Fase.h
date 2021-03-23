@@ -32,6 +32,7 @@ class Fase
 
  public:
   Fase(Graph* _g, bool _directed);
+  Fase(IGtrie _igtrie, Graph* _g, bool _directed);
   ~Fase();
 
   int getTypes();

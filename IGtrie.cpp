@@ -2,6 +2,7 @@
 
 IGtrie::IGtrie()
 {
+  isInit = false;
 }
 
 IGtrie::~IGtrie()
@@ -11,6 +12,10 @@ IGtrie::~IGtrie()
 
 void IGtrie::init(int K)
 {
+  if (isInit) {
+    return;
+  }
+
   maxLabels = 10 * K * K;
   numLabels = 1;
   labelPaths = (int**) malloc(sizeof(int*) * maxLabels);
@@ -21,6 +26,8 @@ void IGtrie::init(int K)
   labelLeaf[0] = 1;
   labelCount[0] = 0;
   memset(labelPaths[0], -1, sizeof(int) * LB_WORD_SIZE);
+
+  isInit = true;
 }
 
 void IGtrie::destroy()
@@ -44,7 +51,7 @@ void IGtrie::expand()
   maxLabels *= 2;
   labelPaths = (int**) realloc(labelPaths, sizeof(int*) * maxLabels);
   labelLeaf = (int*) realloc(labelLeaf, sizeof(int) * maxLabels);
-  labelCount = (int*) realloc(labelCount, sizeof(int) * maxLabels);  
+  labelCount = (int*) realloc(labelCount, sizeof(int) * maxLabels);
 }
 
 void IGtrie::incrementLabel(int labelNode, int value)
