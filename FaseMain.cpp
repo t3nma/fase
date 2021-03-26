@@ -247,51 +247,100 @@ void finish(Fase* fase)
   fclose(outFile);
 }
 
-// assuming stdin input and subgraph set size = 1
-// assuming same Fase inputs (K, dir, ...)
-void readSubgraph(Graph *g) {
-  char str[K*K+1];
+void genPermGraph(int *perm, Graph *orig, Graph *dest) {
+  dest->createGraph(K, UNDIRECTED);
   for (int i=0; i!=K; ++i) {
-    scanf("%s", &str[i*K]);
+    for (int j=0; j!=K; ++j) {
+      if (orig->hasEdge(perm[i],perm[j])) {
+        dest->addEdge(i,j);
+      }
+    }
   }
-  GraphUtils::strToGraph(g, str, K, dir);
+}
+
+void printPermGraph(Graph *g) {
+  for (int i=0; i!=K; ++i) {
+    for (int j=0; j!=K; ++j) {
+      printf("%d", g->hasEdge(i,j));
+    }
+  }
+  putchar('\n');
+}
+
+void insertSubgraphPerm(int depth, int *perm, int *used, Graph *g, IGtrie *igtrie) {
+  if (depth == K) {
+    // generate cur permutation's graph
+    Graph *_g = new GraphMatrix();
+    genPermGraph(perm, g, _g);
+    printPermGraph(_g);
+
+    // insert permutation graph in the igtrie
+    int _depth = 1;
+    int nodeLabel = 0;
+    long long int label = 0;
+    int vsub[K]; for (int i=0; i!=K; ++i) vsub[i] = i;
+
+    Label::init(_g, dir);
+
+    while (_depth != K) {
+      label = Label::updateLabel(vsub, vsub[_depth], _depth);
+      nodeLabel = igtrie->insertLabel(nodeLabel, label, Label::repDigits(_depth));
+      _depth++;
+    }
+
+    igtrie->incrementLabel(nodeLabel, 1);
+
+    delete _g;
+    return;
+  }
+
+  // recursion
+  for (int i=0; i!=K; ++i) {
+    if (used[i]) {
+      continue;
+    }
+
+    used[i] = 1;
+    perm[depth] = i;
+    insertSubgraphPerm(depth+1, perm, used, g, igtrie);
+    used[i] = 0;
+  }
 }
 
 void insertSubgraph(Graph *g, IGtrie* igtrie) {
-  int depth = 1;
-  int labelNode = 0;
-  long long int label = 0LL;
-  int vsub[K];
+  int perm[K];
+  int used[K] = {0};
 
+  insertSubgraphPerm(0, perm, used, g, igtrie);
+}
+
+void readSubgraph(Graph *g) {
+  char s[K*K+1];
   for (int i=0; i!=K; ++i) {
-    vsub[i] = i;
+    scanf("%s", &s[i*K]);
   }
-
-  Label::init(g, dir);
-
-  while (depth != K) {
-    label = Label::updateLabel(vsub, vsub[depth], depth);
-    labelNode = igtrie->insertLabel(labelNode, label, Label::repDigits(depth));
-    depth++;
-  }
-
-  igtrie->incrementLabel(labelNode, 1); // just to test against the output
+  GraphUtils::strToGraph(g, s, K, dir);
 }
 
 void iter1() {
-  Graph *pattern = new GraphMatrix();
-  readSubgraph(pattern);
-
   IGtrie *igtrie = new IGtrie();
   igtrie->init(K);
-  insertSubgraph(pattern, igtrie);
+
+  int ni;
+  scanf("%d", &ni);
+  while (ni--) {
+    Graph *g = new GraphMatrix();
+    readSubgraph(g);
+    insertSubgraph(g, igtrie);
+    delete g;
+  }
 
   for (auto elem: igtrie->enumerate(K)) {
     printf("%lld: %d\n", elem.first, elem.second);
   }
 
-  delete pattern;
   delete igtrie;
+  delete G;
   fclose(outFile);
 }
 
