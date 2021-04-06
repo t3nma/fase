@@ -27,7 +27,7 @@ class IGtrie
   void destroy();
 
   void incrementLabel(int labelNode, int value);
-  int insertLabel(int labelNode, long long int label, int digits);
+  int insertLabel(int labelNode, long long int label, int digits, bool createNew = true);
   vector<pair<long long int, int> > enumerate(int K);
 };
 

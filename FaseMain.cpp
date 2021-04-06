@@ -85,9 +85,9 @@ void read(int argc, char **argv)
       int j = 1;
       while (argv[i][j] != '\0')
       {
-	K *= 10;
-	K += argv[i][j] - '0';
-	j++;
+        K *= 10;
+        K += argv[i][j] - '0';
+        j++;
       }
       check |= (1 << 1);
       continue;
@@ -127,7 +127,7 @@ void read(int argc, char **argv)
     {
       K = 0;
       if (check != 0)
-	printf("Warning: Incorrect number of necessary arguments provided\n");
+        printf("Warning: Incorrect number of necessary arguments provided\n");
       displayHelp();
       return;
     }
@@ -211,12 +211,12 @@ void output(Fase* fase)
 ", tm_start->tm_hour, tm_start->tm_min, tm_start->tm_sec, tm_start->tm_mday, tm_start->tm_mon + 1, 1900 + tm_start->tm_year);
   struct tm *tm_end   = localtime(&t_end);
   fprintf(f, "End of Computation: %02dh%02dm%02ds %02d/%02d/%02d\n", tm_end->tm_hour, tm_end->tm_min, tm_end->tm_sec, tm_end->tm_mday, tm_end->tm_mon + 1, 1900 + tm_end->tm_year);
-  
+
   fprintf(f, "\n\n\tResults:\n");
   fprintf(f, "Subgraph Occurrences: %lld\n", (long long int)(fase->getMotifCount() / prob));
   fprintf(f, "Subgraph Types: %d\n", fase->getTypes());
   fprintf(f, "Computation Time (ms): %0.4lf\n", Timer::elapsed());
-  
+
   if (fabs(prob - 1.0) <= 10e-7)
     fprintf(f, "\nExact Enumeration, no Sampling done\n");
   else
@@ -228,7 +228,7 @@ void output(Fase* fase)
     for (i = 0; i < K; i++)
       fprintf(f, "P[%d]: %0.3lf\%\n", i, 100 * sampProb[i]);
   }
-    
+
   if (detailed)
   {
     fprintf(f, "\n\tDetailed Output:\n");
@@ -247,6 +247,15 @@ void finish(Fase* fase)
   fclose(outFile);
 }
 
+void readSubgraph(Graph *g)
+{
+  char s[K*K+1];
+  for (int i=0; i!=K; ++i)
+    scanf("%s", &s[i*K]);
+
+  GraphUtils::strToGraph(g, s, K, dir);
+}
+
 int main(int argc, char **argv)
 {
   init();
@@ -258,16 +267,26 @@ int main(int argc, char **argv)
     return 1;
   }
 
-  Random::init(time(NULL));
-  Fase* fase = new Fase(G, dir);
+  Fase* fase = new Fase(G, dir, K);
   initSamplingProbabilities(fase);
 
+  // Subgraph input
+  // TODO: input from file inside read() ?
+  int ni;
+  scanf("%d", &ni);
+  while (ni--) {
+    Graph *g = new GraphMatrix();
+    readSubgraph(g);
+    fase->setQuery(g);
+    delete g;
+  }
+
   Timer::start();
-  fase->runCensus(K);
+  fase->runCensus();
   Timer::stop();
 
   output(fase);
   finish(fase);
-  
+
   return 0;
 }

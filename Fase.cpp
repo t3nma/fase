@@ -1,10 +1,11 @@
 #include "Fase.h"
 
-Fase::Fase(Graph* _g, bool _directed)
+Fase::Fase(Graph* _g, bool _directed, int _K)
 {
   directed = _directed;
   graph = _g;
   sampling = false;
+  K = _K;
 
   vext = new int*[MAXMOTIF];
   for (int i = 1; i < MAXMOTIF; i++)
@@ -14,7 +15,7 @@ Fase::Fase(Graph* _g, bool _directed)
   vsub = new int[MAXMOTIF];
   sampProb = new double[MAXMOTIF];
 
-  Label::init(_g, _directed);
+  igtrie.init(K);
 }
 
 Fase::~Fase()
@@ -38,11 +39,11 @@ void Fase::initSampling(int sz, double* _sampProb)
   sampling = true;
 }
 
-void Fase::runCensus(int _K)
+void Fase::runCensus()
 {
-  K = _K;
   motifCount = 0;
-  igtrie.init(K);
+
+  Label::init(graph, directed);
 
   for (int i = 0; i < graph->numNodes(); i++)
     if (!sampling || Random::testProb(sampProb[0]))
@@ -55,7 +56,7 @@ void Fase::runCensus(int _K)
       for (int j = 0; j < neiNum; j++)
         if (nei[j] > i)
           vext[1][vextSz[1]++] = nei[j];
-    
+
       expandEnumeration(1, 0, 0LL);
     }
 }
@@ -71,9 +72,13 @@ void Fase::expandEnumeration(int depth, int labelNode, long long int label)
       if (!sampling || Random::testProb(sampProb[depth]))
       {
         long long int clabel = Label::updateLabel(vsub, currentVertex, depth);
-        igtrie.incrementLabel(igtrie.insertLabel(labelNode, clabel, Label::repDigits(depth)), 1);
+        int clabelNode = igtrie.insertLabel(labelNode, clabel, Label::repDigits(depth), false);
 
-        motifCount++;
+        if (clabelNode != -1)
+        {
+          igtrie.incrementLabel(clabelNode, 1);
+          motifCount++;
+        }
       }
     }
 
@@ -98,7 +103,7 @@ void Fase::expandEnumeration(int depth, int labelNode, long long int label)
 
       int *eExcl = graph->arrayNeighbours(currentVertex);
       int eExclNum = graph->numNeighbours(currentVertex);
-      
+
       for (i = 0; i < eExclNum; i++)
       {
         if (eExcl[i] <= vsub[0])
@@ -115,10 +120,11 @@ void Fase::expandEnumeration(int depth, int labelNode, long long int label)
       if (depth >= 1)
       {
         clabel = Label::updateLabel(vsub, currentVertex, depth);
-        clabelNode = igtrie.insertLabel(labelNode, clabel, Label::repDigits(depth));
+        clabelNode = igtrie.insertLabel(labelNode, clabel, Label::repDigits(depth), false);
       }
 
-      expandEnumeration(depth + 1, clabelNode, clabel);
+      if (clabelNode != -1)
+        expandEnumeration(depth + 1, clabelNode, clabel);
     }
   }
 }
@@ -131,6 +137,73 @@ void Fase::getSubgraphFrequency(pair<long long int, int> element, Isomorphism* i
   iso->canonicalStrNauty(sadjM, nauty_s);
   string str = string(nauty_s);
   canonicalTypes[str] += element.second;
+}
+
+/*
+ * Recursive runner for setQuery().
+ * Simulates expandEnumeration() to accumulate the different
+ * vsub permutations from one given subgraph.
+ */
+void Fase::genQueryVersions(int depth, vector<int>& vsub, int* used, int** vext, int* vextSz,
+                               Graph* g, vector< vector<int> >& acc)
+{
+  if (depth == K-1)
+  {
+    while (vextSz[depth])
+    {
+      vsub[depth] = vext[depth][--vextSz[depth]];
+      acc.push_back(vsub);
+    }
+    return;
+  }
+
+  for (int i=0; i!=vextSz[depth]; ++i)
+    vext[depth+1][i] = vext[depth][i];
+
+  while (vextSz[depth])
+  {
+    int curNode = vext[depth][--vextSz[depth]];
+
+    vextSz[depth+1] = vextSz[depth];
+    vsub[depth] = curNode;
+    used[curNode] = 1;
+
+    for (int v: *g->neighbours(curNode))
+    {
+      if (used[v])
+        continue;
+
+      int i;
+      for (i=0; i!=vextSz[depth]; ++i)
+        if (v == vext[depth][i]) {
+          break;
+        }
+
+      if (i == vextSz[depth])
+        vext[depth+1][vextSz[depth+1]++] = v;
+    }
+
+    genQueryVersions(depth+1, vsub, used, vext, vextSz, g, acc);
+    used[curNode] = 0;
+  }
+}
+
+/*
+ * Insert subgraph in the IGtrie according
+ * to a given vsub permutation.
+ */
+void Fase::expandQuery(Graph *g, int *vsub)
+{
+  int depth = 1;
+  int nodeLabel = 0;
+  long long int label = 0;
+
+  while (depth != K)
+  {
+    label = Label::updateLabel(vsub, vsub[depth], depth);
+    nodeLabel = igtrie.insertLabel(nodeLabel, label, Label::repDigits(depth));
+    depth++;
+  }
 }
 
 void Fase::reduceCanonicalTypes()
@@ -163,4 +236,42 @@ vector<pair<int, string> > Fase::subgraphCount()
   reverse(subgraphVector.begin(), subgraphVector.end());
 
   return subgraphVector;
+}
+
+/*
+ * Insert a given subgraph (and all its versions)
+ * in the IGtrie.
+ */
+void Fase::setQuery(Graph *g)
+{
+  vector<int> vsub(K);
+  vector< vector<int> > perm;
+  int used[K] = {0};
+  int **vext = new int*[K];
+  int vextSz[K];
+
+  Label::init(g, directed);
+
+  for (int i=1; i!=K; ++i)
+    vext[i] = new int[K];
+
+  for (int i=0; i!=K; ++i)
+  {
+    vsub[0] = i;
+    used[i] = 1;
+
+    vextSz[1] = 0;
+    for (int v: *g->neighbours(i))
+      vext[1][vextSz[1]++] = v;
+
+    genQueryVersions(1, vsub, used, vext, vextSz, g, perm);
+    used[i] = 0;
+  }
+
+  for (auto p: perm)
+    expandQuery(g, &p[0]);
+
+  for (int i=1; i!=K; ++i)
+    delete vext[i];
+  delete vext;
 }

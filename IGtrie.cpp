@@ -2,6 +2,7 @@
 
 IGtrie::IGtrie()
 {
+
 }
 
 IGtrie::~IGtrie()
@@ -44,7 +45,7 @@ void IGtrie::expand()
   maxLabels *= 2;
   labelPaths = (int**) realloc(labelPaths, sizeof(int*) * maxLabels);
   labelLeaf = (int*) realloc(labelLeaf, sizeof(int) * maxLabels);
-  labelCount = (int*) realloc(labelCount, sizeof(int) * maxLabels);  
+  labelCount = (int*) realloc(labelCount, sizeof(int) * maxLabels);
 }
 
 void IGtrie::incrementLabel(int labelNode, int value)
@@ -52,8 +53,13 @@ void IGtrie::incrementLabel(int labelNode, int value)
   labelCount[labelNode] += value;
 }
 
-int IGtrie::insertLabel(int labelNode, long long int label, int digits)
+int IGtrie::insertLabel(int labelNode, long long int label, int digits, bool createNew)
 {
+  // FASE shouldn't create new nodes in the tree
+  if (!createNew) {
+    return labelPaths[labelNode][label & (LB_WORD_SIZE - 1)];
+  }
+
   if (labelPaths[labelNode][label & (LB_WORD_SIZE - 1)] == -1)
   {
     if (numLabels == maxLabels)

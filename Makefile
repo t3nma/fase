@@ -4,7 +4,7 @@ CC=g++
 CFLAGS= -w -Wno-write-strings -O3 -std=c++11 -g
 
 SRC =                   \
-	Fase.cpp 	\
+	Fase.cpp	\
 	Label.cpp	\
 	IGtrie.cpp	\
 	Isomorphism.cpp	\
