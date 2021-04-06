@@ -1,5 +1,6 @@
 #include "Common.h"
 #include "Fase.h"
+#include "MyFase.h"
 #include "DynamicGraph.h"
 #include "GraphMatrix.h"
 #include "GraphUtils.h"
@@ -247,6 +248,13 @@ void finish(Fase* fase)
   fclose(outFile);
 }
 
+void myfinish(MyFase* fase)
+{
+  delete fase;
+  delete G;
+  fclose(outFile);
+}
+
 void genPermGraph(int *perm, Graph *orig, Graph *dest) {
   dest->createGraph(K, UNDIRECTED);
   for (int i=0; i!=K; ++i) {
@@ -322,26 +330,131 @@ void readSubgraph(Graph *g) {
   GraphUtils::strToGraph(g, s, K, dir);
 }
 
+void simulateInsert(vector<int>& vsub, Graph* g, IGtrie *igtrie) {
+  int *_vsub = &vsub[0];
+  int depth = 1;
+  int nodeLabel = 0;
+  long long int label = 0;
+
+  while (depth != K) {
+    label = Label::updateLabel(_vsub, _vsub[depth], depth);
+    nodeLabel = igtrie->insertLabel(nodeLabel, label, Label::repDigits(depth));
+    depth++;
+  }
+
+  // igtrie->incrementLabel(nodeLabel, 1);
+}
+
+void expand(int depth, vector<int>& vsub, int *used, int **vext, int *vextSz,
+            Graph *g, vector< vector<int> >& acc) {
+  if (depth == K-1) {
+    while (vextSz[depth]) {
+      vsub[depth] = vext[depth][--vextSz[depth]];
+      acc.push_back(vsub);
+    }
+    return;
+  }
+
+  for (int i=0; i!=vextSz[depth]; ++i) {
+    vext[depth+1][i] = vext[depth][i];
+  }
+
+  while (vextSz[depth]) {
+    int curNode = vext[depth][--vextSz[depth]];
+
+    vextSz[depth+1] = vextSz[depth];
+    vsub[depth] = curNode;
+    used[curNode] = 1;
+
+    for (int v: *g->neighbours(curNode)) {
+      if (used[v]) {
+        continue;
+      }
+
+      int i;
+      for (i=0; i!=vextSz[depth]; ++i) {
+        if (v == vext[depth][i]) {
+          break;
+        }
+      }
+
+      if (i == vextSz[depth]) {
+        vext[depth+1][vextSz[depth+1]++] = v;
+      }
+    }
+
+    expand(depth+1, vsub, used, vext, vextSz, g, acc);
+    used[curNode] = 0;
+  }
+}
+
+void insertSubgraph_1(Graph *g, IGtrie *igtrie) {
+  vector<int> vsub(K);
+  vector< vector<int> > perm;
+  int used[K] = {0};
+  int **vext = NULL;
+  int vextSz[K];
+
+  Label::init(g, dir);
+
+  vext = new int*[K];
+  for (int i=1; i!=K; ++i) {
+    vext[i] = new int[K];
+  }
+
+  for (int i=0; i!=K; ++i) {
+    vsub[0] = i;
+    used[i] = 1;
+
+    vextSz[1] = 0;
+    for (int v: *g->neighbours(i)) {
+      vext[1][vextSz[1]++] = v;
+    }
+
+    expand(1, vsub, used, vext, vextSz, g, perm);
+    used[i] = 0;
+  }
+
+  for (auto p: perm) {
+    /*
+    for (int v: p) {
+      cout << v << " ";
+    }
+    cout << "\n";
+    */
+    simulateInsert(p, g, igtrie);
+  }
+
+  for (int i=1; i!=K; ++i) {
+    delete vext[i];
+  }
+  delete vext;
+}
+
 void iter1() {
-  IGtrie *igtrie = new IGtrie();
-  igtrie->init(K);
+  MyFase *fase = new MyFase(G, dir, K);
 
   int ni;
   scanf("%d", &ni);
   while (ni--) {
     Graph *g = new GraphMatrix();
     readSubgraph(g);
-    insertSubgraph(g, igtrie);
+    fase->setQuery(g);
+    // insertSubgraph(g, igtrie);
+    //insertSubgraph_1(g, igtrie);
     delete g;
   }
 
-  for (auto elem: igtrie->enumerate(K)) {
-    printf("%lld: %d\n", elem.first, elem.second);
+  // fase->igtrieEnum();
+  fase->runCensus();
+
+  if (detailed) {
+    cout << "\n\tDetailed Output:\n";
+    for (auto element : fase->subgraphCount())
+      cout << element.second << ": " << element.first << "\n";
   }
 
-  delete igtrie;
-  delete G;
-  fclose(outFile);
+  myfinish(fase);
 }
 
 int main(int argc, char **argv)
@@ -356,7 +469,6 @@ int main(int argc, char **argv)
   }
 
   iter1();
-
   /*
   Random::init(time(NULL));
   Fase* fase = new Fase(G, dir);

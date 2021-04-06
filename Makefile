@@ -4,9 +4,11 @@ CC=g++
 CFLAGS= -w -Wno-write-strings -O3 -std=c++11 -g
 
 SRC =                   \
-	Fase.cpp 	\
+	Fase.cpp	\
+	MyFase.cpp	\
 	Label.cpp	\
 	IGtrie.cpp	\
+	MyIGtrie.cpp	\
 	Isomorphism.cpp	\
 	Timer.cpp	\
 	DynamicGraph.cpp\
