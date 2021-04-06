@@ -29,17 +29,20 @@ class Fase
   void reduceCanonicalTypes();
   void expandEnumeration(int depth, int labelNode, long long int label);
   void getSubgraphFrequency(pair<long long int, int> element, Isomorphism* iso);
+  void genQueryVersions(int depth, vector<int>& vsub, int* used, int** vext, int* vextSz,
+                        Graph* g, vector< vector<int> >& acc);
+  void expandQuery(Graph* g, int* vsub);
 
  public:
-  Fase(Graph* _g, bool _directed);
-  Fase(IGtrie _igtrie, Graph* _g, bool _directed);
+  Fase(Graph*, bool, int);
   ~Fase();
 
   int getTypes();
-  void runCensus(int _K);
+  void runCensus();
   void initSampling(int sz, double* _sampProb);
   int getMotifCount() {return motifCount;}
   vector<pair<int, string> > subgraphCount();
+  void setQuery(Graph* g);
 };
 
 #endif
