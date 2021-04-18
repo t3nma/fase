@@ -250,8 +250,6 @@ void Fase::setQuery(Graph *g)
   int **vext = new int*[K];
   int vextSz[K];
 
-  Label::init(g, directed);
-
   for (int i=1; i!=K; ++i)
     vext[i] = new int[K];
 
@@ -268,8 +266,18 @@ void Fase::setQuery(Graph *g)
     used[i] = 0;
   }
 
+  Label::init(g, directed);
+
   for (auto p: perm)
+  {
+    // connected path
     expandQuery(g, &p[0]);
+
+    // first edge disconnected path
+    g->rmEdge(p[0], p[1]); g->rmEdge(p[1], p[0]);
+    expandQuery(g, &p[0]);
+    g->addEdge(p[0], p[1]); g->addEdge(p[1], p[0]);
+  }
 
   for (int i=1; i!=K; ++i)
     delete vext[i];
