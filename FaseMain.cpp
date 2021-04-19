@@ -14,6 +14,7 @@ int K = 0;
 double sampProb[MAXMOTIF], prob;
 bool dir = false, detailed = false, draw = false, samp = false, largeScale = false;
 char ifilename [200];
+char ufilename [200];
 char ofilename [200];
 FILE *outFile;
 time_t t_start, t_end;
@@ -36,7 +37,7 @@ void init()
 
 void displayHelp()
 {
-  printf("------------ FaSE Usage --------------\nMain Settings: ./FASE -s <Subgraph Size> -i <input file> [arguments...]\n\n\tAll commands:\n-h : Displays this help information\n-s <Integer> : Subgraph Size\n-i <Filename> : Name of input file (Format in Readme.txt)\n-d : Directed Subgraph (Default undirected)\n-o : Name of output file (Default is stdout)\n-dt : Detailed Result (Displays all subgraph types and occurrences)\n-ls : Use a large scale representation (default is adjacency matrix)\n-z : Use 0-based input (Suitable for input files starting at node 0)\n-p <P1> <P2> ... <Ps> : Sets the sampling probabilities by depth (note that -s must have been selected first)\n-q : Ignore arguments and prompt input\n--------------------------------------\n");
+  printf("------------ FaSE Usage --------------\nMain Settings: ./FASE -s <Subgraph Size> -i <input file> -u <stream file> [arguments...]\n\n\tAll commands:\n-h : Displays this help information\n-s <Integer> : Subgraph Size\n-i <Filename> : Name of input file (Format in Readme.txt)\n-u <Filename> : Name of stream file (Format in Readme.txt)\n-d : Directed Subgraph (Default undirected)\n-o : Name of output file (Default is stdout)\n-dt : Detailed Result (Displays all subgraph types and occurrences)\n-ls : Use a large scale representation (default is adjacency matrix)\n-z : Use 0-based input (Suitable for input files starting at node 0)\n-p <P1> <P2> ... <Ps> : Sets the sampling probabilities by depth (note that -s must have been selected first)\n-q : Ignore arguments and prompt input\n--------------------------------------\n");
 }
 
 void read(int argc, char **argv)
@@ -78,6 +79,14 @@ void read(int argc, char **argv)
       continue;
     }
 
+    if (argv[i][1] == 'u')
+    {
+      i++;
+      strcpy(ufilename, argv[i]);
+      check |= (1 << 1);
+      continue;
+    }
+
     if (argv[i][1] == 's')
     {
       i++;
@@ -89,7 +98,7 @@ void read(int argc, char **argv)
         K += argv[i][j] - '0';
         j++;
       }
-      check |= (1 << 1);
+      check |= (1 << 2);
       continue;
     }
 
@@ -123,7 +132,7 @@ void read(int argc, char **argv)
 
   if (!itera)
   {
-    if (check != (1 << 2) - 1)
+    if (check != (1 << 3) - 1)
     {
       K = 0;
       if (check != 0)
@@ -158,6 +167,10 @@ void read(int argc, char **argv)
   GraphUtils::readFileTxt(G, ifilename, dir, false, zeroBased);
   G->sortNeighbours();
   G->makeArrayNeighbours();
+
+  // Input filename
+  printf("Insert stream file name: ");
+  scanf(" %s", ufilename);
 
   // Subgraph Size
   printf("Input the value K of the subgraph search: ");
