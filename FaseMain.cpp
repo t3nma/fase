@@ -10,7 +10,7 @@
 using namespace std;
 
 Graph *G;
-int K = 0;
+int K = 0, zeroBased = 1;
 double sampProb[MAXMOTIF], prob;
 bool dir = false, detailed = false, draw = false, samp = false, largeScale = false;
 char ifilename [200];
@@ -43,7 +43,6 @@ void displayHelp()
 void read(int argc, char **argv)
 {
   int E, V, i, check = 0, itera = 0;
-  int zeroBased = 1;
   ofilename[0] = '0';
   ofilename[1] = '\0';
 
@@ -209,6 +208,7 @@ void output(Fase* fase)
   FILE *f = outFile;
   fprintf(f, "\tOutput:\n");
   fprintf(f, "Network: %s\n", ifilename);
+  fprintf(f, "Stream: %s\n", ufilename);
   fprintf(f, "Directed: %s\n", dir ? "Yes" : "No");
   fprintf(f, "Nodes: %d\n", G->numNodes());
   fprintf(f, "Edges: %d\n", G->numEdges() / (dir ? 1 : 2));
@@ -297,6 +297,29 @@ int main(int argc, char **argv)
   Timer::start();
   fase->runCensus();
   Timer::stop();
+  output(fase);
+
+  FILE *f = fopen(ufilename, "r");
+  if (!f)
+    exit(EXIT_FAILURE);
+
+  char op;
+  int u, v;
+
+  Timer::start();
+  while (fscanf(f, "%c %d %d", &op, &u, &v) == 3) {
+    u += 1-zeroBased;
+    v += 1-zeroBased;
+
+    if ( u == v                              ||
+         (op == 'A' && G->hasEdge(u-1, v-1)) ||
+         (op == 'R' && !G->hasEdge(u-1, v-1)) )
+      continue;
+
+    fase->updateCensus(op, u-1, v-1);
+  }
+  Timer::stop();
+  fclose(f);
 
   output(fase);
   finish(fase);
