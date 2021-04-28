@@ -1,8 +1,9 @@
 #include "Fase.h"
 
-Fase::Fase(Graph* _g, bool _directed, int _K)
+Fase::Fase(Graph* _g, bool _directed, bool _monitor, int _K)
 {
   directed = _directed;
+  monitor = _monitor;
   graph = _g;
   sampling = false;
   K = _K;
@@ -111,7 +112,14 @@ void Fase::updateCensus(char op, int u, int v)
   exLabel = (!directed) ? 0 : 2 * graph->hasEdge(v, u);
   nodeExLabel = igtrie.insertLabel(0, exLabel, Label::repDigits(1), false);
 
-  dfsUpdate(vsub, vext, 2, op, connected, origin, nodeInLabel, inLabel, nodeExLabel, exLabel);
+  if (monitor)
+  {
+    reduceCanonicalTypes();
+    char _op = (op == 'A') ? '+' : '-';
+    cout << _op << "(" << u+1 << "," << v+1 << "):\n";
+  }
+
+  dfsUpdate(vsub, vext, 2, op, connected, origin, nodeInLabel, inLabel, nodeExLabel, exLabel, inLabel, exLabel);
 
   if (op == 'R')
   {
@@ -244,14 +252,19 @@ void Fase::expandQueryEnumeration(vector<int>& vsub, int* vext, int numVext, int
  *
  */
 void Fase::dfsUpdate(vector<int>& vsub, vector<int>& vext, int depth, char op, bool connected, map<int, vector<int> >& origin,
-               int nodeInLabel, long long int inLabel, int nodeExLabel, long long int exLabel)
+                     int nodeInLabel, long long int inLabel, int nodeExLabel, long long int exLabel, long long int inPath, long long int exPath)
 {
   if (depth == K)
   {
     if (op == 'A')
     {
       if (nodeInLabel != -1)
+      {
         igtrie.incrementLabel(nodeInLabel, 1);
+        if (monitor)
+          // TODO: check inPath against values of K > LB_WORD_LEN
+          cout << "new occurrence of " << labelCanonicalType[inPath] << "\n";
+      }
       if (connected && nodeExLabel != -1)
         igtrie.incrementLabel(nodeExLabel, -1);
     }
@@ -260,7 +273,12 @@ void Fase::dfsUpdate(vector<int>& vsub, vector<int>& vext, int depth, char op, b
       if (nodeInLabel != -1)
         igtrie.incrementLabel(nodeInLabel, -1);
       if (connected && nodeExLabel != -1)
+      {
         igtrie.incrementLabel(nodeExLabel, 1);
+        if (monitor)
+          // TODO: check exPath against values of K > LB_WORD_LEN
+          cout << "new occurrence of " << labelCanonicalType[exPath] << "\n";
+      }
     }
 
     return;
@@ -285,19 +303,23 @@ void Fase::dfsUpdate(vector<int>& vsub, vector<int>& vext, int depth, char op, b
 
     long long int cInLabel = inLabel;
     int cNodeInLabel = nodeInLabel;
+    long long int cInPath = inPath;
     long long int cExLabel = exLabel;
     int cNodeExLabel = nodeExLabel;
+    long long int cExPath = exPath;
 
     if (nodeInLabel != -1)
     {
       cInLabel = Label::updateLabel(&vsub[0], vsub[depth], depth);
       cNodeInLabel = igtrie.insertLabel(nodeInLabel, cInLabel, Label::repDigits(depth), false);
+      cInPath = (inPath << depth) | cInLabel;
     }
 
     if (nodeExLabel != -1)
     {
       cExLabel = Label::updateLabel(&vsub[0], vsub[depth], depth);
       cNodeExLabel = igtrie.insertLabel(nodeExLabel, cExLabel, Label::repDigits(depth), false);
+      cExPath = (exPath << depth) | cExLabel;
     }
 
     // we skip the current iteration unless:
@@ -331,7 +353,7 @@ void Fase::dfsUpdate(vector<int>& vsub, vector<int>& vext, int depth, char op, b
       }
     }
 
-    dfsUpdate(vsub, vext, depth+1, op, _connected, origin, cNodeInLabel, cInLabel, cNodeExLabel, cExLabel);
+    dfsUpdate(vsub, vext, depth+1, op, _connected, origin, cNodeInLabel, cInLabel, cNodeExLabel, cExLabel, cInPath, cExPath);
   }
 }
 

@@ -12,7 +12,7 @@ using namespace std;
 Graph *G;
 int K = 0, zeroBased = 1;
 double sampProb[MAXMOTIF], prob;
-bool dir = false, detailed = false, draw = false, samp = false, largeScale = false;
+bool dir = false, detailed = false, draw = false, samp = false, largeScale = false, monitor = false;
 char ifilename [200];
 char ufilename [200];
 char ofilename [200];
@@ -37,7 +37,7 @@ void init()
 
 void displayHelp()
 {
-  printf("------------ FaSE Usage --------------\nMain Settings: ./FASE -s <Subgraph Size> -i <input file> -u <stream file> [arguments...]\n\n\tAll commands:\n-h : Displays this help information\n-s <Integer> : Subgraph Size\n-i <Filename> : Name of input file (Format in Readme.txt)\n-u <Filename> : Name of stream file (Format in Readme.txt)\n-d : Directed Subgraph (Default undirected)\n-o : Name of output file (Default is stdout)\n-dt : Detailed Result (Displays all subgraph types and occurrences)\n-ls : Use a large scale representation (default is adjacency matrix)\n-z : Use 0-based input (Suitable for input files starting at node 0)\n-p <P1> <P2> ... <Ps> : Sets the sampling probabilities by depth (note that -s must have been selected first)\n-q : Ignore arguments and prompt input\n--------------------------------------\n");
+  printf("------------ FaSE Usage --------------\nMain Settings: ./FASE -s <Subgraph Size> -i <input file> -u <stream file> [arguments...]\n\n\tAll commands:\n-h : Displays this help information\n-s <Integer> : Subgraph Size\n-i <Filename> : Name of input file (Format in Readme.txt)\n-u <Filename> : Name of stream file (Format in Readme.txt)\n-d : Directed Subgraph (Default undirected)\n-o : Name of output file (Default is stdout)\n-dt : Detailed Result (Displays all subgraph types and occurrences)\n-ls : Use a large scale representation (default is adjacency matrix)\n-z : Use 0-based input (Suitable for input files starting at node 0)\n-m : Monitor mode (reports new occurrences for each update)\n-p <P1> <P2> ... <Ps> : Sets the sampling probabilities by depth (note that -s must have been selected first)\n-q : Ignore arguments and prompt input\n--------------------------------------\n");
 }
 
 void read(int argc, char **argv)
@@ -69,6 +69,9 @@ void read(int argc, char **argv)
 
     if (argv[i][1] == 'z')
       zeroBased = 0;
+
+    if (argv[i][1] == 'm')
+      monitor = true;
 
     if (argv[i][1] == 'i')
     {
@@ -183,6 +186,13 @@ void read(int argc, char **argv)
   else
     outFile = fopen(ofilename, "w");
 
+  // Monitor mode
+  printf("Monitor mode? (y/N) ");
+  char chmonitor;
+  scanf(" %c", &chmonitor);
+  if (chmonitor == 'y' || chmonitor == 'Y')
+    monitor = true;
+
   // Default Sampling probabilities
   if (!samp)
     for (i = 0; i < K; i++)
@@ -253,6 +263,20 @@ void output(Fase* fase)
   }
 }
 
+void outputOccur(Fase *fase, bool update = false, char op = ' ', int u = -1, int v = -1)
+{
+  if (update) {
+    char _op = (op == 'A') ? '+' : '-';
+    cout << _op << "(" << u << "," << v << "):\n";
+  } else {
+    cout << "Census:\n";
+  }
+
+  FILE *f = outFile;
+  for (auto element : fase->subgraphCount())
+    fprintf(f, "%s: %d occurrences\n", element.second.c_str(), element.first);
+}
+
 void finish(Fase* fase)
 {
   delete fase;
@@ -280,7 +304,7 @@ int main(int argc, char **argv)
     return 1;
   }
 
-  Fase* fase = new Fase(G, dir, K);
+  Fase* fase = new Fase(G, dir, monitor, K);
   initSamplingProbabilities(fase);
 
   // Subgraph input
@@ -294,10 +318,16 @@ int main(int argc, char **argv)
     delete g;
   }
 
+  /*
   Timer::start();
   fase->runCensus();
   Timer::stop();
   output(fase);
+  */
+
+  fase->runCensus();
+  if (!monitor)
+    outputOccur(fase);
 
   FILE *f = fopen(ufilename, "r");
   if (!f)
@@ -306,8 +336,7 @@ int main(int argc, char **argv)
   char op;
   int u, v;
 
-  Timer::start();
-  while (fscanf(f, "%c %d %d", &op, &u, &v) == 3) {
+  while (fscanf(f, "%c %d %d\n", &op, &u, &v) == 3) {
     u += 1-zeroBased;
     v += 1-zeroBased;
 
@@ -317,11 +346,11 @@ int main(int argc, char **argv)
       continue;
 
     fase->updateCensus(op, u-1, v-1);
+    if (!monitor)
+      outputOccur(fase, true, op, u, v);
   }
-  Timer::stop();
-  fclose(f);
 
-  output(fase);
+  fclose(f);
   finish(fase);
 
   return 0;
