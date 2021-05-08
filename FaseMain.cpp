@@ -212,6 +212,14 @@ void initSamplingProbabilities(Fase* fase)
     prob = 1.0;
 }
 
+void myOutput(Fase* fase)
+{
+  FILE *f = outFile;
+  //fprintf(f, "%lld\n", (long long int)fase->getMotifCount());
+  for (auto element : fase->subgraphCount())
+    fprintf(f, "%s: %d\n", element.second.c_str(), element.first);
+}
+
 void output(Fase* fase)
 {
   printf("Finished Calculating\n");
@@ -326,28 +334,49 @@ int main(int argc, char **argv)
   */
 
   fase->runCensus();
+  myOutput(fase);
+  /*
   if (!monitor)
     outputOccur(fase);
+  */
 
   FILE *f = fopen(ufilename, "r");
   if (!f)
     exit(EXIT_FAILURE);
 
   char op;
-  int u, v;
+  int u, v, V = G->numNodes();
 
   while (fscanf(f, "%c %d %d\n", &op, &u, &v) == 3) {
-    u += 1-zeroBased;
-    v += 1-zeroBased;
+    u -= zeroBased;
+    v -= zeroBased;
 
-    if ( u == v                              ||
-         (op == 'A' && G->hasEdge(u-1, v-1)) ||
-         (op == 'R' && !G->hasEdge(u-1, v-1)) )
+    if (u >= V || v >= V)
+    {
+      cout << "Edge (" << (u+zeroBased) << "," << (v+zeroBased) << ") exceeds graph size\n";
       continue;
+    }
 
-    fase->updateCensus(op, u-1, v-1);
+    if (op != 'A' && op != 'R')
+    {
+      cout << "Unknown stream command '" << op << "'\n";
+      continue;
+    }
+
+    if ( u == v                          ||
+         (op == 'A' && G->hasEdge(u, v)) ||
+         (op == 'R' && !G->hasEdge(u, v)) )
+    {
+      cout << "Irrelevant (" << (u+zeroBased) << "," << (v+zeroBased) << ") update\n";
+      continue;
+    }
+
+    fase->updateCensus(op, u, v);
+    myOutput(fase);
+    /*
     if (!monitor)
       outputOccur(fase, true, op, u, v);
+    */
   }
 
   fclose(f);

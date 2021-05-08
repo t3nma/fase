@@ -69,9 +69,6 @@ void Fase::runCensus()
  */
 void Fase::updateCensus(char op, int u, int v)
 {
-  vector<int> vsub(K), vext;
-  bool connected = false;
-  map< int, vector<int> > origin;
   int nodeInLabel, nodeExLabel;
   long long int inLabel, exLabel;
 
@@ -85,29 +82,22 @@ void Fase::updateCensus(char op, int u, int v)
   vsub[0] = u;
   vsub[1] = v;
 
-  for (int n: *graph->outEdges(u))
+  vextSz[2] = 0;
+
+  for (int w: *graph->outEdges(u))
+    if (w != v)
+      vext[2][vextSz[2]++] = w;
+
+  for (int w: *graph->outEdges(v))
   {
-    if (n == v)
+    if (w == u)
       continue;
 
-    vext.push_back(n);
-    origin[n].push_back(u);
+    if (find(vext[2], vext[2]+vextSz[2], w) == vext[2]+vextSz[2])
+      vext[2][vextSz[2]++] = w;
   }
 
-  for (int n: *graph->outEdges(v))
-  {
-    if (n == u)
-      continue;
-
-    if (find(vext.begin(), vext.end(), n) == vext.end())
-      vext.push_back(n);
-    origin[n].push_back(v);
-  }
-
-  if (directed && graph->hasEdge(v, u))
-    connected = true;
-
-  inLabel = Label::updateLabel(&vsub[0], vsub[1], 1);
+  inLabel = Label::updateLabel(vsub, v, 1);
   nodeInLabel = igtrie.insertLabel(0, inLabel, Label::repDigits(1), false);
   exLabel = (!directed) ? 0 : 2 * graph->hasEdge(v, u);
   nodeExLabel = igtrie.insertLabel(0, exLabel, Label::repDigits(1), false);
@@ -119,7 +109,7 @@ void Fase::updateCensus(char op, int u, int v)
     cout << _op << "(" << u+1 << "," << v+1 << "):\n";
   }
 
-  dfsUpdate(vsub, vext, 2, op, connected, origin, nodeInLabel, inLabel, nodeExLabel, exLabel, inLabel, exLabel);
+  dfsUpdate(2, (op == 'A'), nodeInLabel, inLabel, nodeExLabel, exLabel);
 
   if (op == 'R')
   {
@@ -133,14 +123,17 @@ void Fase::expandEnumeration(int depth, int labelNode, long long int label)
 {
   if (depth == K - 1)
   {
+    long long int clabel;
+    int clabelNode;
+
     while (vextSz[depth])
     {
       int currentVertex = vext[depth][--vextSz[depth]];
 
       if (!sampling || Random::testProb(sampProb[depth]))
       {
-        long long int clabel = Label::updateLabel(vsub, currentVertex, depth);
-        int clabelNode = igtrie.insertLabel(labelNode, clabel, Label::repDigits(depth), false);
+        clabel = Label::updateLabel(vsub, currentVertex, depth);
+        clabelNode = igtrie.insertLabel(labelNode, clabel, Label::repDigits(depth), false);
 
         if (clabelNode != -1)
         {
@@ -169,6 +162,17 @@ void Fase::expandEnumeration(int depth, int labelNode, long long int label)
       vextSz[depth + 1] = vextSz[depth];
       vsub[depth] = currentVertex;
 
+      if (depth >= 1)
+      {
+        clabel = Label::updateLabel(vsub, currentVertex, depth);
+        clabelNode = igtrie.insertLabel(labelNode, clabel, Label::repDigits(depth), false);
+      }
+
+      // keep expanding unless we're not interested
+      // in the current path
+      if (clabelNode == -1)
+        continue;
+
       int *eExcl = graph->arrayNeighbours(currentVertex);
       int eExclNum = graph->numNeighbours(currentVertex);
 
@@ -185,16 +189,7 @@ void Fase::expandEnumeration(int depth, int labelNode, long long int label)
           vext[depth + 1][vextSz[depth + 1]++] = eExcl[i];
       }
 
-      if (depth >= 1)
-      {
-        clabel = Label::updateLabel(vsub, currentVertex, depth);
-        clabelNode = igtrie.insertLabel(labelNode, clabel, Label::repDigits(depth), false);
-      }
-
-      // keep expanding unless we're not interested
-      // in the current igtrie path
-      if (clabelNode != -1)
-        expandEnumeration(depth + 1, clabelNode, clabel);
+      expandEnumeration(depth + 1, clabelNode, clabel);
     }
   }
 }
@@ -215,122 +210,146 @@ void Fase::getSubgraphFrequency(pair<long long int, int> element, Isomorphism* i
  * Starting with 2 fixed nodes it simulates a sort-of-FaSE
  * expansion in order to generate paths in the igtrie.
  */
-void Fase::expandQueryEnumeration(vector<int>& vsub, int* vext, int numVext, int depth, int nodeLabel, long long int label, Graph* g)
+void Fase::expandQueryEnumeration(int depth, int nodeLabel, Graph* g)
 {
   if (depth == K-1)
   {
-    for (int i=0; i!=numVext; ++i)
+    int next;
+    long long int label;
+
+    while (vextSz[depth])
     {
-      label = Label::updateLabel(&vsub[0], vext[i], depth);
+      next = vext[depth][--vextSz[depth]];
+
+      if (next == -1)
+        continue;
+
+      label = Label::updateLabel(vsub, next, depth);
       igtrie.insertLabel(nodeLabel, label, Label::repDigits(depth));
     }
     return;
   }
 
-  while (numVext)
+  int next, cNodeLabel;
+  long long int label;
+
+  for (int i=0; i!=vextSz[depth]; ++i)
+    vext[depth+1][i] = vext[depth][i];
+  vextSz[depth+1] = vextSz[depth];
+
+  for (int i=0; i!=vextSz[depth]; ++i)
   {
-    int next = vext[--numVext];
+    next = vext[depth][i];
+
+    if (next == -1)
+      continue;
+
     vsub[depth] = next;
+    vext[depth+1][i] = -1;
 
-    for (int w: *graph->neighbours(next))
+    for (int w: *g->outEdges(next))
     {
-      if (find(vsub.begin(), vsub.begin()+depth, w) != vsub.begin()+depth ||
-          find(vext, vext+numVext, w) != vext+numVext)
-        continue;
+      int j;
+      for (j=0; j!=depth; ++j)
+        if (w == vsub[j] || g->isConnected(w, vsub[j]))
+          break;
 
-      vext[numVext++] = w;
+      if (j == depth)
+        vext[depth+1][vextSz[depth+1]++] = w;
     }
 
-    long long int cLabel = Label::updateLabel(&vsub[0], next, depth);
-    int cNodeLabel = igtrie.insertLabel(nodeLabel, label, Label::repDigits(depth));
+    label = Label::updateLabel(vsub, next, depth);
+    cNodeLabel = igtrie.insertLabel(nodeLabel, label, Label::repDigits(depth));
 
-    expandQueryEnumeration(vsub, vext, numVext, depth+1, cNodeLabel, cLabel, g);
+    expandQueryEnumeration(depth+1, cNodeLabel, g);
+
+    vext[depth+1][i] = next;
+    vextSz[depth+1] = vextSz[depth];
   }
 }
 
-/*
- *
- */
-void Fase::dfsUpdate(vector<int>& vsub, vector<int>& vext, int depth, char op, bool connected, map<int, vector<int> >& origin,
-                     int nodeInLabel, long long int inLabel, int nodeExLabel, long long int exLabel, long long int inPath, long long int exPath)
+void Fase::dfsUpdate(int depth, bool increment, int nodeInLabel, long long int inLabel, int nodeExLabel, long long int exLabel)
 {
-  if (depth == K)
+  if (depth == K-1)
   {
-    if (op == 'A')
+    int next, cNodeInLabel, cNodeExLabel;
+    long long int cLabel;
+
+    while (vextSz[depth])
     {
+      next = vext[depth][--vextSz[depth]];
+      vsub[depth] = next;
+
+      cLabel = Label::updateLabel(vsub, next, depth);
+
       if (nodeInLabel != -1)
       {
-        igtrie.incrementLabel(nodeInLabel, 1);
-        if (monitor)
-          // TODO: check inPath against values of K > LB_WORD_LEN
-          cout << "new occurrence of " << labelCanonicalType[inPath] << "\n";
+        cNodeInLabel = igtrie.insertLabel(nodeInLabel, cLabel, Label::repDigits(depth), false);
+
+        if (cNodeInLabel != -1)
+        {
+          igtrie.incrementLabel(cNodeInLabel, 1 - 2*!increment);
+          motifCount += 1 - 2*!increment;
+
+          if (monitor && increment)
+            // TODO: check inPath against values of K > LB_WORD_LEN
+            //       & directed networks
+            cout << "new occurrence of " << labelCanonicalType[(inLabel << Label::repDigits(depth)) | cLabel] << "\n";
+        }
       }
-      if (connected && nodeExLabel != -1)
-        igtrie.incrementLabel(nodeExLabel, -1);
-    }
-    else
-    {
-      if (nodeInLabel != -1)
-        igtrie.incrementLabel(nodeInLabel, -1);
-      if (connected && nodeExLabel != -1)
+
+      if (nodeExLabel != -1)
       {
-        igtrie.incrementLabel(nodeExLabel, 1);
-        if (monitor)
-          // TODO: check exPath against values of K > LB_WORD_LEN
-          cout << "new occurrence of " << labelCanonicalType[exPath] << "\n";
+        cNodeExLabel = igtrie.insertLabel(nodeExLabel, cLabel, Label::repDigits(depth), false);
+
+        if (cNodeExLabel != -1)
+        {
+          igtrie.incrementLabel(cNodeExLabel, 1 - 2*increment);
+          motifCount += 1 - 2*increment;
+
+          if (monitor && !increment)
+            // TODO: check exPath against values of K > LB_WORD_LEN
+            //       & directed networks
+            cout << "new occurrence of " << labelCanonicalType[(exLabel << Label::repDigits(depth)) | cLabel] << "\n";
+        }
       }
     }
 
     return;
   }
 
-  while (!vext.empty())
+  int next, cNodeInLabel, cNodeExLabel;
+  long long int cLabel, cInPath, cExPath;
+
+  for (int i=0; i!=vextSz[depth]; ++i)
+    vext[depth+1][i] = vext[depth][i];
+
+  while (vextSz[depth])
   {
-    int next = vext.back();
+    next = vext[depth][--vextSz[depth]];
     vsub[depth] = next;
-    vext.pop_back();
+    vextSz[depth+1] = vextSz[depth];
 
-    int search = 0;
-    for (int w: origin[next])
-    {
-      if (w == vsub[0])
-        search |= (1 << 0);
-      if (w == vsub[1])
-        search |= (1 << 1);
-    }
-
-    bool _connected = (search == (1 << 2) - 1);
-
-    long long int cInLabel = inLabel;
-    int cNodeInLabel = nodeInLabel;
-    long long int cInPath = inPath;
-    long long int cExLabel = exLabel;
-    int cNodeExLabel = nodeExLabel;
-    long long int cExPath = exPath;
+    cLabel = Label::updateLabel(vsub, next, depth);
 
     if (nodeInLabel != -1)
     {
-      cInLabel = Label::updateLabel(&vsub[0], vsub[depth], depth);
-      cNodeInLabel = igtrie.insertLabel(nodeInLabel, cInLabel, Label::repDigits(depth), false);
-      cInPath = (inPath << depth) | cInLabel;
+      cNodeInLabel = igtrie.insertLabel(nodeInLabel, cLabel, Label::repDigits(depth), false);
+      cInPath = (inLabel << Label::repDigits(depth)) | cLabel;
     }
 
     if (nodeExLabel != -1)
     {
-      cExLabel = Label::updateLabel(&vsub[0], vsub[depth], depth);
-      cNodeExLabel = igtrie.insertLabel(nodeExLabel, cExLabel, Label::repDigits(depth), false);
-      cExPath = (exPath << depth) | cExLabel;
+      cNodeExLabel = igtrie.insertLabel(nodeExLabel, cLabel, Label::repDigits(depth), false);
+      cExPath = (exLabel << Label::repDigits(depth)) | cLabel;
     }
 
-    // we skip the current iteration unless:
-    // . we are interested in the connected path
-    // OR
-    // . we're in a connected enumeration AND we are interested
-    //   in the disconnected path
-    if (cNodeInLabel == -1 && (!_connected || cNodeExLabel == -1))
+    // we skip the current iteration unless we are interested
+    // in at least one of the enumeration paths
+    if (cNodeInLabel == -1 && cNodeExLabel == -1)
       continue;
 
-    for (int w: *graph->neighbours(next))
+    for (int w: *graph->outEdges(next))
     {
       int i;
       for (i=0; i!=depth; ++i)
@@ -338,22 +357,10 @@ void Fase::dfsUpdate(vector<int>& vsub, vector<int>& vext, int depth, char op, b
           break;
 
       if (i == depth)
-      {
-        vext.push_back(w);
-
-        vector<int> orig { next };
-        if (search & (1 << 0))
-          orig.push_back(vsub[0]);
-        if (search & (1 << 1))
-          orig.push_back(vsub[1]);
-
-        set_union(orig.begin(), orig.end(),
-                  origin[next].begin(), origin[next].end(),
-                  origin[w].begin());
-      }
+        vext[depth+1][vextSz[depth+1]++] = w;
     }
 
-    dfsUpdate(vsub, vext, depth+1, op, _connected, origin, cNodeInLabel, cInLabel, cNodeExLabel, cExLabel, cInPath, cExPath);
+    dfsUpdate(depth+1, increment, cNodeInLabel, cInPath, cNodeExLabel, cExPath);
   }
 }
 
@@ -405,14 +412,10 @@ vector<pair<int, string> > Fase::subgraphCount()
  */
 void Fase::setQuery(Graph *g)
 {
-  vector<int> vsub(K);
-  int nodeLabel, *vext, numVext;
+  int nodeLabel;
   long long int label;
 
   Label::init(g, directed);
-
-  vext = new int[K];
-  numVext = 0;
 
   for (int u=0; u!=K; ++u)
     for (int v=0; v!=K; ++v)
@@ -423,21 +426,24 @@ void Fase::setQuery(Graph *g)
       vsub[0] = u;
       vsub[1] = v;
 
-      for (int w: *g->neighbours(u))
+      vextSz[2] = 0;
+
+      for (int w: *g->outEdges(u))
         if (w != v)
-          vext[numVext++] = w;
+          vext[2][vextSz[2]++] = w;
 
-      for (int w: *g->neighbours(v))
-        if (w != u && find(vext, vext+numVext, w) == vext+numVext)
-          vext[numVext++] = w;
+      for (int w: *g->outEdges(v))
+      {
+        if (w == u)
+          continue;
 
-      label = Label::updateLabel(&vsub[0], vsub[1], 1);
+        if (find(vext[2], vext[2]+vextSz[2], w) == vext[2]+vextSz[2])
+          vext[2][vextSz[2]++] = w;
+      }
+
+      label = Label::updateLabel(vsub, v, 1);
       nodeLabel = igtrie.insertLabel(0, label, Label::repDigits(1));
 
-      expandQueryEnumeration(vsub, vext, numVext, 2, nodeLabel, label, g);
-
-      numVext = 0;
+      expandQueryEnumeration(2, nodeLabel, g);
     }
-
-  delete[] vext;
 }

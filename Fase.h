@@ -30,10 +30,9 @@ class Fase
 
   void reduceCanonicalTypes();
   void expandEnumeration(int depth, int labelNode, long long int label);
-  void expandQueryEnumeration(vector<int>&, int*, int, int, int, long long int, Graph*);
+  void expandQueryEnumeration(int, int, Graph*);
   void getSubgraphFrequency(pair<long long int, int> element, Isomorphism* iso);
-  void dfsUpdate(vector<int>&, vector<int>&, int, char, bool, map<int,vector<int> >&,
-                 int, long long int, int, long long int, long long int, long long int);
+  void dfsUpdate(int, bool, int, long long int, int, long long int);
 
  public:
   Fase(Graph*, bool, bool, int);
