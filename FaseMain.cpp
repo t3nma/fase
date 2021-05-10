@@ -212,14 +212,6 @@ void initSamplingProbabilities(Fase* fase)
     prob = 1.0;
 }
 
-void myOutput(Fase* fase)
-{
-  FILE *f = outFile;
-  //fprintf(f, "%lld\n", (long long int)fase->getMotifCount());
-  for (auto element : fase->subgraphCount())
-    fprintf(f, "%s: %d\n", element.second.c_str(), element.first);
-}
-
 void output(Fase* fase)
 {
   printf("Finished Calculating\n");
@@ -271,16 +263,15 @@ void output(Fase* fase)
   }
 }
 
-void outputOccur(Fase *fase, bool update = false, char op = ' ', int u = -1, int v = -1)
+void outputOccur(Fase *fase, int u = -1, int v = -1, bool increment = true)
 {
-  if (update) {
-    char _op = (op == 'A') ? '+' : '-';
-    cout << _op << "(" << u << "," << v << "):\n";
-  } else {
-    cout << "Census:\n";
-  }
-
   FILE *f = outFile;
+
+  if (u == -1)
+    fprintf(f, "census:\n");
+  else
+    fprintf(f, "%c(%d,%d):\n", "-+"[increment], u, v);
+
   for (auto element : fase->subgraphCount())
     fprintf(f, "%s: %d occurrences\n", element.second.c_str(), element.first);
 }
@@ -312,7 +303,7 @@ int main(int argc, char **argv)
     return 1;
   }
 
-  Fase* fase = new Fase(G, dir, monitor, K);
+  Fase* fase = new Fase(G, dir, K);
   initSamplingProbabilities(fase);
 
   // Subgraph input
@@ -334,11 +325,7 @@ int main(int argc, char **argv)
   */
 
   fase->runCensus();
-  myOutput(fase);
-  /*
-  if (!monitor)
-    outputOccur(fase);
-  */
+  outputOccur(fase);
 
   FILE *f = fopen(ufilename, "r");
   if (!f)
@@ -346,37 +333,41 @@ int main(int argc, char **argv)
 
   char op;
   int u, v, V = G->numNodes();
+  bool inc;
 
   while (fscanf(f, "%c %d %d\n", &op, &u, &v) == 3) {
     u -= zeroBased;
     v -= zeroBased;
-
-    if (u >= V || v >= V)
-    {
-      cout << "Edge (" << (u+zeroBased) << "," << (v+zeroBased) << ") exceeds graph size\n";
-      continue;
-    }
 
     if (op != 'A' && op != 'R')
     {
       cout << "Unknown stream command '" << op << "'\n";
       continue;
     }
+    else
+      inc = (op == 'A');
 
-    if ( u == v                          ||
-         (op == 'A' && G->hasEdge(u, v)) ||
-         (op == 'R' && !G->hasEdge(u, v)) )
+    if (u >= V || v >= V)
     {
-      cout << "Irrelevant (" << (u+zeroBased) << "," << (v+zeroBased) << ") update\n";
+      cout << "Edge (" << u << "," << v << ") exceeds graph size\n";
       continue;
     }
 
-    fase->updateCensus(op, u, v);
-    myOutput(fase);
-    /*
+    if ( u == v                    ||
+         (inc && G->hasEdge(u, v)) ||
+         (!inc && !G->hasEdge(u, v)) )
+    {
+      cout << "Irrelevant (" << u << "," << v << ") update\n";
+      continue;
+    }
+
     if (!monitor)
-      outputOccur(fase, true, op, u, v);
-    */
+    {
+      fase->updateCensus(u, v, inc);
+      outputOccur(fase, u, v, inc);
+    }
+    else
+      fase->monitor(u, v, inc);
   }
 
   fclose(f);

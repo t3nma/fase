@@ -13,7 +13,6 @@ class Fase
  private:
   bool directed;
   bool sampling;
-  bool monitor;
   Graph *graph;
   int K;
   int motifCount;
@@ -33,14 +32,16 @@ class Fase
   void expandQueryEnumeration(int, int, Graph*);
   void getSubgraphFrequency(pair<long long int, int> element, Isomorphism* iso);
   void dfsUpdate(int, bool, int, long long int, int, long long int);
+  void dfsUpdateM(int, bool, int, long long int);
 
  public:
-  Fase(Graph*, bool, bool, int);
+  Fase(Graph*, bool, int);
   ~Fase();
 
   int getTypes();
   void runCensus();
-  void updateCensus(char, int, int);
+  void updateCensus(int, int, bool);
+  void monitor(int, int, bool);
   void initSampling(int sz, double* _sampProb);
   int getMotifCount() {return motifCount;}
   vector<pair<int, string> > subgraphCount();
