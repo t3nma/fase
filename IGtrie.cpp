@@ -55,7 +55,7 @@ void IGtrie::incrementLabel(int labelNode, int value)
 
 int IGtrie::insertLabel(int labelNode, long long int label, int digits, bool createNew)
 {
-  // FASE shouldn't create new nodes in the tree
+  // FaSE shouldn't create new nodes in the tree
   if (!createNew) {
     return labelPaths[labelNode][label & (LB_WORD_SIZE - 1)];
   }

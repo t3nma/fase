@@ -1,13 +1,13 @@
-//                                                
-//  88888888888           ad88888ba   88888888888  
-//  88                   d8"     "8b  88           
-//  88                   Y8,          88           
-//  88aaaaa  ,adPPYYba,  `Y8aaaaa,    88aaaaa      
-//  88"""""  ""     `Y8    `"""""8b,  88"""""      
-//  88       ,adPPPPP88          `8b  88           
-//  88       88,    ,88  Y8a     a8P  88           
-//  88       `"8bbdP"Y8   "Y88888P"   88888888888  
-//                                                 
+//
+//  88888888888           ad88888ba   88888888888
+//  88                   d8"     "8b  88
+//  88                   Y8,          88
+//  88aaaaa  ,adPPYYba,  `Y8aaaaa,    88aaaaa
+//  88"""""  ""     `Y8    `"""""8b,  88"""""
+//  88       ,adPPPPP88          `8b  88
+//  88       88,    ,88  Y8a     a8P  88
+//  88       `"8bbdP"Y8   "Y88888P"   88888888888
+//
 
 Pedro {Paredes, Ribeiro} - DCC/FCUP
 
@@ -26,21 +26,27 @@ Main Settings: `./FASE -s <Subgraph Size> -i <input file> [arguments...]`
 All commands:
 
     -h : Displays this help information
-	-s <Integer> : Subgraph Size
-	-i <Filename> : Name of input file (Format in Readme)
-	-d : Directed Subgraph (Default undirected)
-	-o : Name of output file (Default is stdout)
-	-dt : Detailed Result (Displays all subgraph types and occurrences)
-	-z : Use 0-based input (Suitable for input files starting at node 0)
-	-tm : Use Adjacency Matrix LS-Labeling (Default is Adjacency List Labeling)
-	-l : Use Adjacency List Only (Suitable for Large Scale or large networks [>10^5 nodes])
-	-q : Ignore arguments and prompt input
+    -s <Integer> : Subgraph Size
+    -i <Filename> : Name of input file (Format in Readme)
+    -u <Filename> : Name of stream file (Format in Readme)
+    -d : Directed Subgraph (Default undirected)
+    -o : Name of output file (Default is stdout)
+    -dt : Detailed Result (Displays all subgraph types and occurrences)
+    -z : Use 0-based input (Suitable for input files starting at node 0)
+    -tm : Use Adjacency Matrix LS-Labeling (Default is Adjacency List Labeling)
+    -l : Use Adjacency List Only (Suitable for Large Scale or large networks [>10^5 nodes])
+    -q : Ignore arguments and prompt input
 
 ## Input Information
 The inputed networks should be in an edge list format, meaning that the input
 file should only contain lines with information about an edge, starting with
 node 1 or 0 (can be specified in the arguments) and with all edges from 0/1
 to `<Number of edges> - 1 / <Number of edges>` being used.
+
+The stream updates should contain information about the type of update and
+the network target edge, meaning that the input file should only contain
+lines starting with a 'A' (addition) or 'R' (removal) and followed by the
+edge specification in the same format defined above.
 
 ## Folder Information
 The main folder contains all source files from the FaSE Source Code, this Read Me

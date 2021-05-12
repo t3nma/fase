@@ -1,0 +1,9 @@
+Network: 911
+Number of edges in the initial network: 9318
+Number of edge additions: 206590
+Number of edge deletions: 211911
+Number of edges not deleted: 3997
+Last timestamp: 5616000
+Total number of nodes: 13314
+Average number of edges: 5883
+Number of updates: 418501

@@ -10,10 +10,11 @@
 using namespace std;
 
 Graph *G;
-int K = 0;
+int K = 0, zeroBased = 1;
 double sampProb[MAXMOTIF], prob;
-bool dir = false, detailed = false, draw = false, samp = false, largeScale = false;
+bool dir = false, detailed = false, draw = false, samp = false, largeScale = false, monitor = false;
 char ifilename [200];
+char ufilename [200];
 char ofilename [200];
 FILE *outFile;
 time_t t_start, t_end;
@@ -36,13 +37,12 @@ void init()
 
 void displayHelp()
 {
-  printf("------------ FaSE Usage --------------\nMain Settings: ./FASE -s <Subgraph Size> -i <input file> [arguments...]\n\n\tAll commands:\n-h : Displays this help information\n-s <Integer> : Subgraph Size\n-i <Filename> : Name of input file (Format in Readme.txt)\n-d : Directed Subgraph (Default undirected)\n-o : Name of output file (Default is stdout)\n-dt : Detailed Result (Displays all subgraph types and occurrences)\n-ls : Use a large scale representation (default is adjacency matrix)\n-z : Use 0-based input (Suitable for input files starting at node 0)\n-p <P1> <P2> ... <Ps> : Sets the sampling probabilities by depth (note that -s must have been selected first)\n-q : Ignore arguments and prompt input\n--------------------------------------\n");
+  printf("------------ FaSE Usage --------------\nMain Settings: ./FASE -s <Subgraph Size> -i <input file> -u <stream file> [arguments...]\n\n\tAll commands:\n-h : Displays this help information\n-s <Integer> : Subgraph Size\n-i <Filename> : Name of input file (Format in Readme.txt)\n-u <Filename> : Name of stream file (Format in Readme.txt)\n-d : Directed Subgraph (Default undirected)\n-o : Name of output file (Default is stdout)\n-dt : Detailed Result (Displays all subgraph types and occurrences)\n-ls : Use a large scale representation (default is adjacency matrix)\n-z : Use 0-based input (Suitable for input files starting at node 0)\n-m : Monitor mode (reports new occurrences for each update)\n-p <P1> <P2> ... <Ps> : Sets the sampling probabilities by depth (note that -s must have been selected first)\n-q : Ignore arguments and prompt input\n--------------------------------------\n");
 }
 
 void read(int argc, char **argv)
 {
   int E, V, i, check = 0, itera = 0;
-  int zeroBased = 1;
   ofilename[0] = '0';
   ofilename[1] = '\0';
 
@@ -70,11 +70,22 @@ void read(int argc, char **argv)
     if (argv[i][1] == 'z')
       zeroBased = 0;
 
+    if (argv[i][1] == 'm')
+      monitor = true;
+
     if (argv[i][1] == 'i')
     {
       i++;
       strcpy(ifilename, argv[i]);
       check |= (1 << 0);
+      continue;
+    }
+
+    if (argv[i][1] == 'u')
+    {
+      i++;
+      strcpy(ufilename, argv[i]);
+      check |= (1 << 1);
       continue;
     }
 
@@ -89,7 +100,7 @@ void read(int argc, char **argv)
         K += argv[i][j] - '0';
         j++;
       }
-      check |= (1 << 1);
+      check |= (1 << 2);
       continue;
     }
 
@@ -123,7 +134,7 @@ void read(int argc, char **argv)
 
   if (!itera)
   {
-    if (check != (1 << 2) - 1)
+    if (check != (1 << 3) - 1)
     {
       K = 0;
       if (check != 0)
@@ -159,6 +170,10 @@ void read(int argc, char **argv)
   G->sortNeighbours();
   G->makeArrayNeighbours();
 
+  // Input filename
+  printf("Insert stream file name: ");
+  scanf(" %s", ufilename);
+
   // Subgraph Size
   printf("Input the value K of the subgraph search: ");
   scanf("%d", &K);
@@ -170,6 +185,13 @@ void read(int argc, char **argv)
     outFile = stdout;
   else
     outFile = fopen(ofilename, "w");
+
+  // Monitor mode
+  printf("Monitor mode? (y/N) ");
+  char chmonitor;
+  scanf(" %c", &chmonitor);
+  if (chmonitor == 'y' || chmonitor == 'Y')
+    monitor = true;
 
   // Default Sampling probabilities
   if (!samp)
@@ -196,6 +218,7 @@ void output(Fase* fase)
   FILE *f = outFile;
   fprintf(f, "\tOutput:\n");
   fprintf(f, "Network: %s\n", ifilename);
+  fprintf(f, "Stream: %s\n", ufilename);
   fprintf(f, "Directed: %s\n", dir ? "Yes" : "No");
   fprintf(f, "Nodes: %d\n", G->numNodes());
   fprintf(f, "Edges: %d\n", G->numEdges() / (dir ? 1 : 2));
@@ -240,6 +263,19 @@ void output(Fase* fase)
   }
 }
 
+void outputOccur(Fase *fase, int u = -1, int v = -1, bool increment = true)
+{
+  FILE *f = outFile;
+
+  if (u == -1)
+    fprintf(f, "census:\n");
+  else
+    fprintf(f, "%c(%d,%d):\n", "-+"[increment], u, v);
+
+  for (auto element : fase->subgraphCount())
+    fprintf(f, "%s: %d occurrences\n", element.second.c_str(), element.first);
+}
+
 void finish(Fase* fase)
 {
   delete fase;
@@ -281,11 +317,60 @@ int main(int argc, char **argv)
     delete g;
   }
 
+  /*
   Timer::start();
   fase->runCensus();
   Timer::stop();
-
   output(fase);
+  */
+
+  fase->runCensus();
+  outputOccur(fase);
+
+  FILE *f = fopen(ufilename, "r");
+  if (!f)
+    exit(EXIT_FAILURE);
+
+  char op;
+  int u, v, V = G->numNodes();
+  bool inc;
+
+  while (fscanf(f, "%c %d %d\n", &op, &u, &v) == 3) {
+    u -= zeroBased;
+    v -= zeroBased;
+
+    if (op != 'A' && op != 'R')
+    {
+      cout << "Unknown stream command '" << op << "'\n";
+      continue;
+    }
+    else
+      inc = (op == 'A');
+
+    if (u >= V || v >= V)
+    {
+      cout << "Edge (" << u << "," << v << ") exceeds graph size\n";
+      continue;
+    }
+
+    if ( u == v                    ||
+         (inc && G->hasEdge(u, v)) ||
+         (!inc && !G->hasEdge(u, v)) )
+    {
+      cout << "Irrelevant (" << u << "," << v << ") update\n";
+      continue;
+    }
+
+    if (!monitor)
+    {
+      fase->updateCensus(u, v, inc);
+      outputOccur(fase, u, v, inc);
+    }
+    else
+      fase->monitor(u, v, inc);
+  }
+
+  fclose(f);
   finish(fase);
 
   return 0;
