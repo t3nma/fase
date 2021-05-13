@@ -156,7 +156,41 @@ void Fase::monitor(int u, int v, bool increment)
   nodeLabel = igtrie.insertLabel(0, label, Label::repDigits(1), false);
 
   cout << (increment ? "+(" : "-(") << u << "," << v << "):\n";
-  dfsUpdateM(2, increment, nodeLabel, label);
+  dfsUpdateM(2, nodeLabel, label);
+}
+
+void Fase::monitor2(int u, int v, bool increment)
+{
+  reduceCanonicalTypes();
+
+  if (increment)
+  {
+    monitor(u, v, increment);
+    return;
+  }
+
+  graph->rmEdge(u, v);
+  if (!directed)
+    graph->rmEdge(v, u);
+
+  if (graph->outEdges(u)->size() <= graph->outEdges(v)->size())
+  {
+    vsub[0] = u;
+    vsub[K-1] = v;
+  }
+  else
+  {
+    vsub[0] = v;
+    vsub[K-1] = u;
+  }
+
+  vextSz[1] = 0;
+  for (int w: *graph->outEdges(vsub[0]))
+    if (w != vsub[K-1])
+      vext[1][vextSz[1]++] = w;
+
+  cout << "-(" << u << "," << v << "):\n";
+  dfsUpdateM2(1, vsub[K-1], false, 0, 0LL);
 }
 
 void Fase::expandEnumeration(int depth, int labelNode, long long int label)
@@ -394,7 +428,7 @@ void Fase::dfsUpdate(int depth, bool increment, int nodeInLabel, long long int i
   }
 }
 
-void Fase::dfsUpdateM(int depth, bool increment, int nodeLabel, long long int label)
+void Fase::dfsUpdateM(int depth, int nodeLabel, long long int label)
 {
   if (depth == K-1)
   {
@@ -446,7 +480,72 @@ void Fase::dfsUpdateM(int depth, bool increment, int nodeLabel, long long int la
         vext[depth+1][vextSz[depth+1]++] = w;
     }
 
-    dfsUpdateM(depth+1, increment, cNodeLabel, cPath);
+    dfsUpdateM(depth+1, cNodeLabel, cPath);
+  }
+}
+
+void Fase::dfsUpdateM2(int depth, int searchNode, bool connected, int nodeLabel, long long int label)
+{
+  if (depth == K-1)
+  {
+    int next, cNodeLabel;
+    long long int cLabel;
+
+    while (vextSz[depth])
+    {
+      next = vext[depth][--vextSz[depth]];
+
+      if (!connected && next != searchNode)
+        continue;
+
+      cLabel = Label::updateLabel(vsub, next, depth);
+      cNodeLabel = igtrie.insertLabel(nodeLabel, cLabel, Label::repDigits(depth), false);
+
+      if (cNodeLabel != -1)
+        cout << "new occurrence of " << labelCanonicalType[(label << Label::repDigits(depth)) | cLabel] << "\n";
+
+      if (!connected)
+        break;
+    }
+
+    return;
+  }
+
+  int next, cNodeLabel;
+  long long int cLabel, cPath;
+  bool _connected;
+
+  for (int i=0; i!=vextSz[depth]; ++i)
+    vext[depth+1][i] = vext[depth][i];
+
+  while (vextSz[depth])
+  {
+    next = vext[depth][--vextSz[depth]];
+    vsub[depth] = next;
+    vextSz[depth+1] = vextSz[depth];
+    _connected = connected || (next == searchNode);
+
+    cLabel = Label::updateLabel(vsub, next, depth);
+    cNodeLabel = igtrie.insertLabel(nodeLabel, cLabel, Label::repDigits(depth), false);
+    cPath = (label << Label::repDigits(depth)) | cLabel;
+
+    // we skip the current iteration unless we are
+    // interested in the enumeration path
+    if (cNodeLabel == -1)
+      continue;
+
+    for (int w: *graph->outEdges(next))
+    {
+      int i;
+      for (i=0; i!=depth; ++i)
+        if (w == vsub[i] || graph->isConnected(w, vsub[i]))
+          break;
+
+      if (i == depth)
+        vext[depth+1][vextSz[depth+1]++] = w;
+    }
+
+    dfsUpdateM2(depth+1, searchNode, _connected, cNodeLabel, cPath);
   }
 }
 
@@ -532,4 +631,20 @@ void Fase::setQuery(Graph *g)
 
       expandQueryEnumeration(2, nodeLabel, g);
     }
+}
+
+void Fase::setQuery2(Graph *g)
+{
+  Label::init(g, directed);
+
+  for (int u=0; u!=K; ++u)
+  {
+    vsub[0] = u;
+
+    vextSz[1] = 0;
+    for (int w: *g->outEdges(u))
+      vext[1][vextSz[1]++] = w;
+
+    expandQueryEnumeration(1, 0, g);
+  }
 }

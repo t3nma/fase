@@ -12,7 +12,7 @@ using namespace std;
 Graph *G;
 int K = 0, zeroBased = 1;
 double sampProb[MAXMOTIF], prob;
-bool dir = false, detailed = false, draw = false, samp = false, largeScale = false, monitor = false;
+bool dir = false, detailed = false, draw = false, samp = false, largeScale = false, monitor = false, monitor2 = false;
 char ifilename [200];
 char ufilename [200];
 char ofilename [200];
@@ -71,7 +71,12 @@ void read(int argc, char **argv)
       zeroBased = 0;
 
     if (argv[i][1] == 'm')
-      monitor = true;
+    {
+      if (argv[i][2] == '2')
+        monitor2 = true;
+      else
+        monitor = true;
+    }
 
     if (argv[i][1] == 'i')
     {
@@ -238,7 +243,7 @@ void output(Fase* fase)
   fprintf(f, "\n\n\tResults:\n");
   fprintf(f, "Subgraph Occurrences: %lld\n", (long long int)(fase->getMotifCount() / prob));
   fprintf(f, "Subgraph Types: %d\n", fase->getTypes());
-  fprintf(f, "Computation Time (ms): %0.4lf\n", Timer::elapsed());
+  fprintf(f, "Computation Time (ms): %0.4lf\n", Timer::elapsed() * 1000);
 
   if (fabs(prob - 1.0) <= 10e-7)
     fprintf(f, "\nExact Enumeration, no Sampling done\n");
@@ -313,7 +318,10 @@ int main(int argc, char **argv)
   while (ni--) {
     Graph *g = new GraphMatrix();
     readSubgraph(g);
-    fase->setQuery(g);
+    if (monitor2)
+      fase->setQuery2(g);
+    else
+      fase->setQuery(g);
     delete g;
   }
 
@@ -361,13 +369,15 @@ int main(int argc, char **argv)
       continue;
     }
 
-    if (!monitor)
+    if (monitor)
+      fase->monitor(u, v, inc);
+    else if (monitor2)
+      fase->monitor2(u, v, inc);
+    else
     {
       fase->updateCensus(u, v, inc);
       outputOccur(fase, u, v, inc);
     }
-    else
-      fase->monitor(u, v, inc);
   }
 
   fclose(f);
