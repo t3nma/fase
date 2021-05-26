@@ -260,11 +260,11 @@ void output(Fase* fase)
   if (detailed)
   {
     fprintf(f, "\n\tDetailed Output:\n");
-    for (auto element : fase->subgraphCount())
+    for (auto element : fase->subgraphCount(monitor || monitor2))
       if (samp && fabs(prob) > 10e-7)
-        fprintf(f, "%s: %d occurrences\n", element.second.c_str(), (int)(element.first / prob));
+        fprintf(f, "%s: %d occurrences\n", element.first.c_str(), (int)(element.second / prob));
       else
-        fprintf(f, "%s: %d occurrences\n", element.second.c_str(), element.first);
+        fprintf(f, "%s: %d occurrences\n", element.first.c_str(), element.second);
   }
 }
 
@@ -277,8 +277,8 @@ void outputOccur(Fase *fase, int u = -1, int v = -1, bool increment = true)
   else
     fprintf(f, "%c(%d,%d):\n", "-+"[increment], u, v);
 
-  for (auto element : fase->subgraphCount())
-    fprintf(f, "%s: %d occurrences\n", element.second.c_str(), element.first);
+  for (auto elem : fase->subgraphCount(monitor || monitor2))
+    fprintf(f, "%s: %d\n", elem.first.c_str(), elem.second);
 }
 
 void finish(Fase* fase)
@@ -333,7 +333,8 @@ int main(int argc, char **argv)
   */
 
   fase->runCensus();
-  outputOccur(fase);
+  if (!(monitor || monitor2))
+    outputOccur(fase);
 
   FILE *f = fopen(ufilename, "r");
   if (!f)
@@ -374,10 +375,9 @@ int main(int argc, char **argv)
     else if (monitor2)
       fase->monitor2(u, v, inc);
     else
-    {
       fase->updateCensus(u, v, inc);
-      outputOccur(fase, u, v, inc);
-    }
+
+    outputOccur(fase, u, v, inc);
   }
 
   fclose(f);

@@ -46,7 +46,7 @@ class Fase
   void monitor2(int, int, bool);
   void initSampling(int sz, double* _sampProb);
   int getMotifCount() {return motifCount;}
-  vector<pair<int, string> > subgraphCount();
+  vector< pair<string,int> > subgraphCount(bool);
   void setQuery(Graph*);
   void setQuery2(Graph*);
 };
