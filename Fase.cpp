@@ -49,13 +49,11 @@ void Fase::runCensus()
     if (!sampling || Random::testProb(sampProb[0]))
     {
       vsub[0] = i;
-      int *nei = graph->arrayNeighbours(i);
-      int neiNum = graph->numNeighbours(i);
 
       vextSz[1] = 0;
-      for (int j = 0; j < neiNum; j++)
-        if (nei[j] > i)
-          vext[1][vextSz[1]++] = nei[j];
+      for (int w: *graph->neighbours(i))
+        if (w > i)
+          vext[1][vextSz[1]++] = w;
 
       expandEnumeration(1, 0, 0LL);
     }
@@ -83,11 +81,11 @@ void Fase::updateCensus(int u, int v, bool increment)
 
   vextSz[2] = 0;
 
-  for (int w: *graph->outEdges(u))
+  for (int w: *graph->neighbours(u))
     if (w != v)
       vext[2][vextSz[2]++] = w;
 
-  for (int w: *graph->outEdges(v))
+  for (int w: *graph->neighbours(v))
   {
     if (w == u)
       continue;
@@ -141,11 +139,11 @@ void Fase::monitor(int u, int v, bool increment)
 
   vextSz[2] = 0;
 
-  for (int w: *graph->outEdges(u))
+  for (int w: *graph->neighbours(u))
     if (w != v)
       vext[2][vextSz[2]++] = w;
 
-  for (int w: *graph->outEdges(v))
+  for (int w: *graph->neighbours(v))
   {
     if (w == u)
       continue;
@@ -176,7 +174,7 @@ void Fase::monitor2(int u, int v, bool increment)
   if (!directed)
     graph->rmEdge(v, u);
 
-  if (graph->outEdges(u)->size() <= graph->outEdges(v)->size())
+  if (graph->neighbours(u)->size() <= graph->neighbours(v)->size())
   {
     vsub[0] = u;
     vsub[K-1] = v;
@@ -188,7 +186,7 @@ void Fase::monitor2(int u, int v, bool increment)
   }
 
   vextSz[1] = 0;
-  for (int w: *graph->outEdges(vsub[0]))
+  for (int w: *graph->neighbours(vsub[0]))
     if (w != vsub[K-1])
       vext[1][vextSz[1]++] = w;
 
@@ -249,20 +247,17 @@ void Fase::expandEnumeration(int depth, int labelNode, long long int label)
       if (clabelNode == -1)
         continue;
 
-      int *eExcl = graph->arrayNeighbours(currentVertex);
-      int eExclNum = graph->numNeighbours(currentVertex);
-
-      for (i = 0; i < eExclNum; i++)
+      for (int w: *graph->neighbours(currentVertex))
       {
-        if (eExcl[i] <= vsub[0])
+        if (w <= vsub[0])
           continue;
 
         for (j = 0; j < depth; j++)
-          if (eExcl[i] == vsub[j] || graph->isConnected(eExcl[i], vsub[j]))
+          if (w == vsub[j] || graph->isConnected(w, vsub[j]))
             break;
 
         if (j == depth)
-          vext[depth + 1][vextSz[depth + 1]++] = eExcl[i];
+          vext[depth + 1][vextSz[depth + 1]++] = w;
       }
 
       expandEnumeration(depth + 1, clabelNode, clabel);
@@ -323,7 +318,7 @@ void Fase::expandQueryEnumeration(int depth, int nodeLabel, Graph* g)
     vsub[depth] = next;
     vext[depth+1][i] = -1;
 
-    for (int w: *g->outEdges(next))
+    for (int w: *g->neighbours(next))
     {
       int j;
       for (j=0; j!=depth; ++j)
@@ -415,7 +410,7 @@ void Fase::dfsUpdate(int depth, bool increment, int nodeInLabel, long long int i
     if (cNodeInLabel == -1 && cNodeExLabel == -1)
       continue;
 
-    for (int w: *graph->outEdges(next))
+    for (int w: *graph->neighbours(next))
     {
       int i;
       for (i=0; i!=depth; ++i)
@@ -474,7 +469,7 @@ void Fase::dfsUpdateM(int depth, int nodeLabel, long long int label)
     if (cNodeLabel == -1)
       continue;
 
-    for (int w: *graph->outEdges(next))
+    for (int w: *graph->neighbours(next))
     {
       int i;
       for (i=0; i!=depth; ++i)
@@ -542,7 +537,7 @@ void Fase::dfsUpdateM2(int depth, int searchNode, bool connected, int nodeLabel,
     if (cNodeLabel == -1)
       continue;
 
-    for (int w: *graph->outEdges(next))
+    for (int w: *graph->neighbours(next))
     {
       int i;
       for (i=0; i!=depth; ++i)
@@ -629,11 +624,11 @@ void Fase::setQuery(Graph *g)
 
       vextSz[2] = 0;
 
-      for (int w: *g->outEdges(u))
+      for (int w: *g->neighbours(u))
         if (w != v)
           vext[2][vextSz[2]++] = w;
 
-      for (int w: *g->outEdges(v))
+      for (int w: *g->neighbours(v))
       {
         if (w == u)
           continue;
@@ -658,7 +653,7 @@ void Fase::setQuery2(Graph *g)
     vsub[0] = u;
 
     vextSz[1] = 0;
-    for (int w: *g->outEdges(u))
+    for (int w: *g->neighbours(u))
       vext[1][vextSz[1]++] = w;
 
     expandQueryEnumeration(1, 0, g);

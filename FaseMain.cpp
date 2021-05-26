@@ -149,7 +149,7 @@ void read(int argc, char **argv)
     }
     GraphUtils::readFileTxt(G, ifilename, dir, false, zeroBased);
     G->sortNeighbours();
-    G->makeArrayNeighbours();
+    // G->makeArrayNeighbours();
     if (ofilename[0] == '0' && ofilename[1] == '\0')
       outFile = stdout;
     else
@@ -173,7 +173,7 @@ void read(int argc, char **argv)
   scanf(" %s", ifilename);
   GraphUtils::readFileTxt(G, ifilename, dir, false, zeroBased);
   G->sortNeighbours();
-  G->makeArrayNeighbours();
+  // G->makeArrayNeighbours();
 
   // Input filename
   printf("Insert stream file name: ");

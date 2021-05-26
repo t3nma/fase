@@ -1,10 +1,10 @@
 /* -------------------------------------------------
-      _       _     ___                            
- __ _| |_ _ _(_)___/ __| __ __ _ _ _  _ _  ___ _ _ 
+      _       _     ___
+ __ _| |_ _ _(_)___/ __| __ __ _ _ _  _ _  ___ _ _
 / _` |  _| '_| / -_)__ \/ _/ _` | ' \| ' \/ -_) '_|
-\__, |\__|_| |_\___|___/\__\__,_|_||_|_||_\___|_|  
-|___/                                          
-    
+\__, |\__|_| |_\___|___/\__\__,_|_||_|_||_\___|_|
+|___/
+
 gtrieScanner: quick discovery of network motifs
 Released under Artistic License 2.0
 (see README and LICENSE)
@@ -40,7 +40,7 @@ void GraphMatrix::_init() {
   _adjM             = NULL;
   _adjOut           = NULL;
   _adjIn            = NULL;
-  _neighbours       = NULL;  
+  _neighbours       = NULL;
   _in               = NULL;
   _out              = NULL;
   _num_neighbours   = NULL;
@@ -94,13 +94,13 @@ void GraphMatrix::createGraph(int n, GraphType t) {
 
   _delete();
 
-  _adjM = new bool*[n];  
+  _adjM = new bool*[n];
   for (i=0; i<n; i++) _adjM[i] = new bool[n];
   _adjIn      = new vector<int>[n];
   _adjOut     = new vector<int>[n];
   _neighbours = new vector<int>[n];
 
-  _in             = new int[n]; 
+  _in             = new int[n];
   _out            = new int[n];
   _num_neighbours = new int[n];
 
@@ -173,7 +173,7 @@ void GraphMatrix::sortNeighboursArray() {
 void GraphMatrix::makeArrayNeighbours() {
   int i,j;
   vector<int>:: iterator ii;
-  _array_neighbours = new int*[_num_nodes];  
+  _array_neighbours = new int*[_num_nodes];
   for (i=0; i<_num_nodes; i++) {
     _array_neighbours[i] = new int[_neighbours[i].size()];
     for (ii=_neighbours[i].begin(), j=0; ii!=_neighbours[i].end(); ++ii, j++)
