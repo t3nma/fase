@@ -12,7 +12,7 @@ using namespace std;
 Graph *G;
 int K = 0, zeroBased = 1;
 double sampProb[MAXMOTIF], prob;
-bool dir = false, detailed = false, draw = false, samp = false, largeScale = false, monitor = false;
+bool dir = false, detailed = false, draw = false, samp = false, largeScale = false, monitor = false, monitor2 = false;
 char ifilename [200];
 char ufilename [200];
 char ofilename [200];
@@ -71,7 +71,12 @@ void read(int argc, char **argv)
       zeroBased = 0;
 
     if (argv[i][1] == 'm')
-      monitor = true;
+    {
+      if (argv[i][2] == '2')
+        monitor2 = true;
+      else
+        monitor = true;
+    }
 
     if (argv[i][1] == 'i')
     {
@@ -144,7 +149,7 @@ void read(int argc, char **argv)
     }
     GraphUtils::readFileTxt(G, ifilename, dir, false, zeroBased);
     G->sortNeighbours();
-    G->makeArrayNeighbours();
+    // G->makeArrayNeighbours();
     if (ofilename[0] == '0' && ofilename[1] == '\0')
       outFile = stdout;
     else
@@ -168,7 +173,7 @@ void read(int argc, char **argv)
   scanf(" %s", ifilename);
   GraphUtils::readFileTxt(G, ifilename, dir, false, zeroBased);
   G->sortNeighbours();
-  G->makeArrayNeighbours();
+  // G->makeArrayNeighbours();
 
   // Input filename
   printf("Insert stream file name: ");
@@ -238,7 +243,7 @@ void output(Fase* fase)
   fprintf(f, "\n\n\tResults:\n");
   fprintf(f, "Subgraph Occurrences: %lld\n", (long long int)(fase->getMotifCount() / prob));
   fprintf(f, "Subgraph Types: %d\n", fase->getTypes());
-  fprintf(f, "Computation Time (ms): %0.4lf\n", Timer::elapsed());
+  fprintf(f, "Computation Time (ms): %0.4lf\n", Timer::elapsed() * 1000);
 
   if (fabs(prob - 1.0) <= 10e-7)
     fprintf(f, "\nExact Enumeration, no Sampling done\n");
@@ -255,11 +260,11 @@ void output(Fase* fase)
   if (detailed)
   {
     fprintf(f, "\n\tDetailed Output:\n");
-    for (auto element : fase->subgraphCount())
+    for (auto element : fase->subgraphCount(monitor || monitor2))
       if (samp && fabs(prob) > 10e-7)
-        fprintf(f, "%s: %d occurrences\n", element.second.c_str(), (int)(element.first / prob));
+        fprintf(f, "%s: %d occurrences\n", element.first.c_str(), (int)(element.second / prob));
       else
-        fprintf(f, "%s: %d occurrences\n", element.second.c_str(), element.first);
+        fprintf(f, "%s: %d occurrences\n", element.first.c_str(), element.second);
   }
 }
 
@@ -272,8 +277,8 @@ void outputOccur(Fase *fase, int u = -1, int v = -1, bool increment = true)
   else
     fprintf(f, "%c(%d,%d):\n", "-+"[increment], u, v);
 
-  for (auto element : fase->subgraphCount())
-    fprintf(f, "%s: %d occurrences\n", element.second.c_str(), element.first);
+  for (auto elem : fase->subgraphCount(monitor || monitor2))
+    fprintf(f, "%s: %d\n", elem.first.c_str(), elem.second);
 }
 
 void finish(Fase* fase)
@@ -313,7 +318,10 @@ int main(int argc, char **argv)
   while (ni--) {
     Graph *g = new GraphMatrix();
     readSubgraph(g);
-    fase->setQuery(g);
+    if (monitor2)
+      fase->setQuery2(g);
+    else
+      fase->setQuery(g);
     delete g;
   }
 
@@ -325,7 +333,8 @@ int main(int argc, char **argv)
   */
 
   fase->runCensus();
-  outputOccur(fase);
+  if (!(monitor || monitor2))
+    outputOccur(fase);
 
   FILE *f = fopen(ufilename, "r");
   if (!f)
@@ -361,13 +370,14 @@ int main(int argc, char **argv)
       continue;
     }
 
-    if (!monitor)
-    {
-      fase->updateCensus(u, v, inc);
-      outputOccur(fase, u, v, inc);
-    }
-    else
+    if (monitor)
       fase->monitor(u, v, inc);
+    else if (monitor2)
+      fase->monitor2(u, v, inc);
+    else
+      fase->updateCensus(u, v, inc);
+
+    outputOccur(fase, u, v, inc);
   }
 
   fclose(f);

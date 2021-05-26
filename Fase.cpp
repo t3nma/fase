@@ -42,20 +42,18 @@ void Fase::initSampling(int sz, double* _sampProb)
 void Fase::runCensus()
 {
   motifCount = 0;
-
+  reduceCanonicalTypes();
   Label::init(graph, directed);
 
   for (int i = 0; i < graph->numNodes(); i++)
     if (!sampling || Random::testProb(sampProb[0]))
     {
       vsub[0] = i;
-      int *nei = graph->arrayNeighbours(i);
-      int neiNum = graph->numNeighbours(i);
 
       vextSz[1] = 0;
-      for (int j = 0; j < neiNum; j++)
-        if (nei[j] > i)
-          vext[1][vextSz[1]++] = nei[j];
+      for (int w: *graph->neighbours(i))
+        if (w > i)
+          vext[1][vextSz[1]++] = w;
 
       expandEnumeration(1, 0, 0LL);
     }
@@ -83,11 +81,11 @@ void Fase::updateCensus(int u, int v, bool increment)
 
   vextSz[2] = 0;
 
-  for (int w: *graph->outEdges(u))
+  for (int w: *graph->neighbours(u))
     if (w != v)
       vext[2][vextSz[2]++] = w;
 
-  for (int w: *graph->outEdges(v))
+  for (int w: *graph->neighbours(v))
   {
     if (w == u)
       continue;
@@ -120,6 +118,8 @@ void Fase::monitor(int u, int v, bool increment)
   long long int label;
 
   reduceCanonicalTypes();
+  for (auto& elem: canonicalTypes)
+    elem.second = 0;
 
   if (increment)
   {
@@ -139,11 +139,11 @@ void Fase::monitor(int u, int v, bool increment)
 
   vextSz[2] = 0;
 
-  for (int w: *graph->outEdges(u))
+  for (int w: *graph->neighbours(u))
     if (w != v)
       vext[2][vextSz[2]++] = w;
 
-  for (int w: *graph->outEdges(v))
+  for (int w: *graph->neighbours(v))
   {
     if (w == u)
       continue;
@@ -155,8 +155,42 @@ void Fase::monitor(int u, int v, bool increment)
   label = Label::updateLabel(vsub, v, 1);
   nodeLabel = igtrie.insertLabel(0, label, Label::repDigits(1), false);
 
-  cout << (increment ? "+(" : "-(") << u << "," << v << "):\n";
-  dfsUpdateM(2, increment, nodeLabel, label);
+  dfsUpdateM(2, nodeLabel, label);
+}
+
+void Fase::monitor2(int u, int v, bool increment)
+{
+  reduceCanonicalTypes();
+  for (auto& elem: canonicalTypes)
+    elem.second = 0;
+
+  if (increment)
+  {
+    monitor(u, v, increment);
+    return;
+  }
+
+  graph->rmEdge(u, v);
+  if (!directed)
+    graph->rmEdge(v, u);
+
+  if (graph->neighbours(u)->size() <= graph->neighbours(v)->size())
+  {
+    vsub[0] = u;
+    vsub[K-1] = v;
+  }
+  else
+  {
+    vsub[0] = v;
+    vsub[K-1] = u;
+  }
+
+  vextSz[1] = 0;
+  for (int w: *graph->neighbours(vsub[0]))
+    if (w != vsub[K-1])
+      vext[1][vextSz[1]++] = w;
+
+  dfsUpdateM2(1, vsub[K-1], false, 0, 0LL);
 }
 
 void Fase::expandEnumeration(int depth, int labelNode, long long int label)
@@ -213,20 +247,17 @@ void Fase::expandEnumeration(int depth, int labelNode, long long int label)
       if (clabelNode == -1)
         continue;
 
-      int *eExcl = graph->arrayNeighbours(currentVertex);
-      int eExclNum = graph->numNeighbours(currentVertex);
-
-      for (i = 0; i < eExclNum; i++)
+      for (int w: *graph->neighbours(currentVertex))
       {
-        if (eExcl[i] <= vsub[0])
+        if (w <= vsub[0])
           continue;
 
         for (j = 0; j < depth; j++)
-          if (eExcl[i] == vsub[j] || graph->isConnected(eExcl[i], vsub[j]))
+          if (w == vsub[j] || graph->isConnected(w, vsub[j]))
             break;
 
         if (j == depth)
-          vext[depth + 1][vextSz[depth + 1]++] = eExcl[i];
+          vext[depth + 1][vextSz[depth + 1]++] = w;
       }
 
       expandEnumeration(depth + 1, clabelNode, clabel);
@@ -287,7 +318,7 @@ void Fase::expandQueryEnumeration(int depth, int nodeLabel, Graph* g)
     vsub[depth] = next;
     vext[depth+1][i] = -1;
 
-    for (int w: *g->outEdges(next))
+    for (int w: *g->neighbours(next))
     {
       int j;
       for (j=0; j!=depth; ++j)
@@ -379,7 +410,7 @@ void Fase::dfsUpdate(int depth, bool increment, int nodeInLabel, long long int i
     if (cNodeInLabel == -1 && cNodeExLabel == -1)
       continue;
 
-    for (int w: *graph->outEdges(next))
+    for (int w: *graph->neighbours(next))
     {
       int i;
       for (i=0; i!=depth; ++i)
@@ -394,12 +425,12 @@ void Fase::dfsUpdate(int depth, bool increment, int nodeInLabel, long long int i
   }
 }
 
-void Fase::dfsUpdateM(int depth, bool increment, int nodeLabel, long long int label)
+void Fase::dfsUpdateM(int depth, int nodeLabel, long long int label)
 {
   if (depth == K-1)
   {
     int next, cNodeLabel;
-    long long int cLabel;
+    long long int cLabel, cPath;
 
     while (vextSz[depth])
     {
@@ -408,7 +439,10 @@ void Fase::dfsUpdateM(int depth, bool increment, int nodeLabel, long long int la
       cNodeLabel = igtrie.insertLabel(nodeLabel, cLabel, Label::repDigits(depth), false);
 
       if (cNodeLabel != -1)
-        cout << "new occurrence of " << labelCanonicalType[(label << Label::repDigits(depth)) | cLabel] << "\n";
+      {
+        cPath = (label << Label::repDigits(depth)) | cLabel;
+        canonicalTypes[labelCanonicalType[cPath]]++;
+      }
     }
 
     return;
@@ -435,7 +469,7 @@ void Fase::dfsUpdateM(int depth, bool increment, int nodeLabel, long long int la
     if (cNodeLabel == -1)
       continue;
 
-    for (int w: *graph->outEdges(next))
+    for (int w: *graph->neighbours(next))
     {
       int i;
       for (i=0; i!=depth; ++i)
@@ -446,7 +480,75 @@ void Fase::dfsUpdateM(int depth, bool increment, int nodeLabel, long long int la
         vext[depth+1][vextSz[depth+1]++] = w;
     }
 
-    dfsUpdateM(depth+1, increment, cNodeLabel, cPath);
+    dfsUpdateM(depth+1, cNodeLabel, cPath);
+  }
+}
+
+void Fase::dfsUpdateM2(int depth, int searchNode, bool connected, int nodeLabel, long long int label)
+{
+  if (depth == K-1)
+  {
+    int next, cNodeLabel;
+    long long int cLabel, cPath;
+
+    while (vextSz[depth])
+    {
+      next = vext[depth][--vextSz[depth]];
+
+      if (!connected && next != searchNode)
+        continue;
+
+      cLabel = Label::updateLabel(vsub, next, depth);
+      cNodeLabel = igtrie.insertLabel(nodeLabel, cLabel, Label::repDigits(depth), false);
+
+      if (cNodeLabel != -1)
+      {
+        cPath = (label << Label::repDigits(depth)) | cLabel;
+        canonicalTypes[labelCanonicalType[cPath]]++;
+      }
+
+      if (!connected)
+        break;
+    }
+
+    return;
+  }
+
+  int next, cNodeLabel;
+  long long int cLabel, cPath;
+  bool _connected;
+
+  for (int i=0; i!=vextSz[depth]; ++i)
+    vext[depth+1][i] = vext[depth][i];
+
+  while (vextSz[depth])
+  {
+    next = vext[depth][--vextSz[depth]];
+    vsub[depth] = next;
+    vextSz[depth+1] = vextSz[depth];
+    _connected = connected || (next == searchNode);
+
+    cLabel = Label::updateLabel(vsub, next, depth);
+    cNodeLabel = igtrie.insertLabel(nodeLabel, cLabel, Label::repDigits(depth), false);
+    cPath = (label << Label::repDigits(depth)) | cLabel;
+
+    // we skip the current iteration unless we are
+    // interested in the enumeration path
+    if (cNodeLabel == -1)
+      continue;
+
+    for (int w: *graph->neighbours(next))
+    {
+      int i;
+      for (i=0; i!=depth; ++i)
+        if (w == vsub[i] || graph->isConnected(w, vsub[i]))
+          break;
+
+      if (i == depth)
+        vext[depth+1][vextSz[depth+1]++] = w;
+    }
+
+    dfsUpdateM2(depth+1, searchNode, _connected, cNodeLabel, cPath);
   }
 }
 
@@ -468,19 +570,19 @@ int Fase::getTypes()
   return (int)canonicalTypes.size();
 }
 
-vector<pair<int, string> > Fase::subgraphCount()
+vector< pair<string, int> > Fase::subgraphCount(bool monitor)
 {
-  if (canonicalTypes.empty())
-    reduceCanonicalTypes();
-  else
+  // reset and update counts from igtrie if not in monitor mode
+  if (!monitor)
   {
-    for (auto it=canonicalTypes.begin(); it!=canonicalTypes.end(); ++it)
-      it->second = 0;
+    for (auto& elem: canonicalTypes)
+      elem.second = 0;
 
-    for (auto element : igtrie.enumerate(K))
-      canonicalTypes[labelCanonicalType[element.first]] += element.second;
+    for (auto elem : igtrie.enumerate(K))
+      canonicalTypes[labelCanonicalType[elem.first]] += elem.second;
   }
 
+  /*
   vector<pair<int, string> > subgraphVector;
   for (auto element : canonicalTypes)
     subgraphVector.push_back(make_pair(element.second, element.first));
@@ -489,6 +591,14 @@ vector<pair<int, string> > Fase::subgraphCount()
   reverse(subgraphVector.begin(), subgraphVector.end());
 
   return subgraphVector;
+  */
+
+  vector< pair<string, int> > ret;
+  for (auto elem: canonicalTypes)
+    if (!monitor || elem.second > 0)
+      ret.push_back({elem.first, elem.second});
+
+  return ret;
 }
 
 /*
@@ -514,11 +624,11 @@ void Fase::setQuery(Graph *g)
 
       vextSz[2] = 0;
 
-      for (int w: *g->outEdges(u))
+      for (int w: *g->neighbours(u))
         if (w != v)
           vext[2][vextSz[2]++] = w;
 
-      for (int w: *g->outEdges(v))
+      for (int w: *g->neighbours(v))
       {
         if (w == u)
           continue;
@@ -532,4 +642,20 @@ void Fase::setQuery(Graph *g)
 
       expandQueryEnumeration(2, nodeLabel, g);
     }
+}
+
+void Fase::setQuery2(Graph *g)
+{
+  Label::init(g, directed);
+
+  for (int u=0; u!=K; ++u)
+  {
+    vsub[0] = u;
+
+    vextSz[1] = 0;
+    for (int w: *g->neighbours(u))
+      vext[1][vextSz[1]++] = w;
+
+    expandQueryEnumeration(1, 0, g);
+  }
 }

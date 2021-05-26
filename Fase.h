@@ -32,7 +32,8 @@ class Fase
   void expandQueryEnumeration(int, int, Graph*);
   void getSubgraphFrequency(pair<long long int, int> element, Isomorphism* iso);
   void dfsUpdate(int, bool, int, long long int, int, long long int);
-  void dfsUpdateM(int, bool, int, long long int);
+  void dfsUpdateM(int, int, long long int);
+  void dfsUpdateM2(int, int, bool, int, long long int);
 
  public:
   Fase(Graph*, bool, int);
@@ -42,10 +43,12 @@ class Fase
   void runCensus();
   void updateCensus(int, int, bool);
   void monitor(int, int, bool);
+  void monitor2(int, int, bool);
   void initSampling(int sz, double* _sampProb);
   int getMotifCount() {return motifCount;}
-  vector<pair<int, string> > subgraphCount();
+  vector< pair<string,int> > subgraphCount(bool);
   void setQuery(Graph*);
+  void setQuery2(Graph*);
 };
 
 #endif
