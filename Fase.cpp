@@ -283,9 +283,9 @@ void Fase::getSubgraphFrequency(pair<long long int, int> element, Isomorphism* i
  */
 void Fase::expandQueryEnumeration(int depth, int nodeLabel, Graph* g)
 {
-  if (depth == K-1)
+  if (depth == g->numNodes()-1)
   {
-    int next;
+    int next, cNodeLabel;
     long long int label;
 
     while (vextSz[depth])
@@ -296,7 +296,8 @@ void Fase::expandQueryEnumeration(int depth, int nodeLabel, Graph* g)
         continue;
 
       label = Label::updateLabel(vsub, next, depth);
-      igtrie.insertLabel(nodeLabel, label, Label::repDigits(depth));
+      cNodeLabel = igtrie.insertLabel(nodeLabel, label, Label::repDigits(depth), true);
+      igtrie.setFinal(cNodeLabel);
     }
     return;
   }
@@ -608,13 +609,14 @@ vector< pair<string, int> > Fase::subgraphCount(bool monitor)
  */
 void Fase::setQuery(Graph *g)
 {
-  int nodeLabel;
+  int numNodes, nodeLabel;
   long long int label;
 
   Label::init(g, directed);
 
-  for (int u=0; u!=K; ++u)
-    for (int v=0; v!=K; ++v)
+  numNodes = g->numNodes();
+  for (int u=0; u!=numNodes; ++u)
+    for (int v=0; v!=numNodes; ++v)
     {
       if (u == v)
         continue;
@@ -648,7 +650,7 @@ void Fase::setQuery2(Graph *g)
 {
   Label::init(g, directed);
 
-  for (int u=0; u!=K; ++u)
+  for (int u=0; u!=g->numNodes(); ++u)
   {
     vsub[0] = u;
 
