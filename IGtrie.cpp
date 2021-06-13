@@ -92,29 +92,29 @@ void IGtrie::setFinal(int labelNode)
   labelFinal[labelNode] = true;
 }
 
-void IGtrie::isFinal(int labelNode)
+bool IGtrie::isFinal(int labelNode)
 {
   return labelFinal[labelNode];
 }
 
-vector<pair<long long int, int> > IGtrie::enumerate(int K)
+vector< pair<pair<long long int, int>, int> > IGtrie::enumerate(int K)
 {
   enumeration.clear();
-  enumerateFrom(0, 0, 0, 0, K - 1);
+  enumerateFrom(0, 0, 0, 0, K - 1, K);
 
   return enumeration;
 }
 
-void IGtrie::enumerateFrom(int currentNode, long long int label, long long int parLabel, int parSize, int remaining)
+void IGtrie::enumerateFrom(int currentNode, long long int label, long long int parLabel, int parSize, int remaining, int K)
 {
   if (remaining == 0)
   {
-    enumeration.push_back(make_pair(label, labelCount[currentNode]));
+    enumeration.push_back(make_pair(make_pair(label, labelCount[currentNode]), K));
     return;
   }
 
   if (isFinal(currentNode))
-    enumeration.push_back(make_pair(label, labelCount[currentNode]));
+    enumeration.push_back(make_pair(make_pair(label, labelCount[currentNode]), K-remaining));
 
   int i;
   for (i = 0; i < LB_WORD_SIZE; i++)
@@ -128,14 +128,14 @@ void IGtrie::enumerateFrom(int currentNode, long long int label, long long int p
         int digits = labelLeaf[labelPaths[currentNode][i]];
         tmpLabel |= (i << tmpSize);
         tmpSize += digits;
-        enumerateFrom(labelPaths[currentNode][i], ((label << tmpSize) | tmpLabel), 0, 0, remaining - 1);
+        enumerateFrom(labelPaths[currentNode][i], ((label << tmpSize) | tmpLabel), 0, 0, remaining - 1, K);
       }
       else
       {
         int digits = LB_WORD_LEN;
         tmpLabel |= (i << tmpSize);
         tmpSize += digits;
-        enumerateFrom(labelPaths[currentNode][i], label, tmpLabel, tmpSize, remaining);
+        enumerateFrom(labelPaths[currentNode][i], label, tmpLabel, tmpSize, remaining, K);
       }
     }
 }

@@ -43,6 +43,7 @@ void Fase::runCensus()
 {
   motifCount = 0;
   reduceCanonicalTypes();
+
   Label::init(graph, directed);
 
   for (int i = 0; i < graph->numNodes(); i++)
@@ -195,6 +196,9 @@ void Fase::monitor2(int u, int v, bool increment)
 
 void Fase::expandEnumeration(int depth, int labelNode, long long int label)
 {
+  if (igtrie.isFinal(labelNode))
+    igtrie.incrementLabel(labelNode, 1);
+
   if (depth == K - 1)
   {
     long long int clabel;
@@ -265,15 +269,15 @@ void Fase::expandEnumeration(int depth, int labelNode, long long int label)
   }
 }
 
-void Fase::getSubgraphFrequency(pair<long long int, int> element, Isomorphism* iso)
+void Fase::getSubgraphFrequency(pair<pair<long long int, int>, int> element, Isomorphism* iso)
 {
-  Label::fillNautyMatrix(sadjM, K, element.first);
+  Label::fillNautyMatrix(sadjM, element.second, element.first.first);
 
   nauty_s[0] = '\0';
   iso->canonicalStrNauty(sadjM, nauty_s);
   string str = string(nauty_s);
-  labelCanonicalType[element.first] = str;
-  canonicalTypes[str] += element.second;
+  labelCanonicalType[element.first.first] = str;
+  canonicalTypes[str] += element.first.second;
 }
 
 /*
@@ -342,6 +346,18 @@ void Fase::expandQueryEnumeration(int depth, int nodeLabel, Graph* g)
 
 void Fase::dfsUpdate(int depth, bool increment, int nodeInLabel, long long int inLabel, int nodeExLabel, long long int exLabel)
 {
+  if (nodeInLabel != -1 && igtrie.isFinal(nodeInLabel))
+  {
+    igtrie.incrementLabel(nodeInLabel, 1 - 2*!increment);
+    motifCount += 1 - 2*!increment;
+  }
+
+  if (nodeExLabel != -1 && igtrie.isFinal(nodeExLabel))
+  {
+    igtrie.incrementLabel(nodeExLabel, 1 - 2*increment);
+    motifCount += 1 - 2*increment;
+  }
+
   if (depth == K-1)
   {
     int next, cNodeInLabel, cNodeExLabel;
@@ -428,6 +444,9 @@ void Fase::dfsUpdate(int depth, bool increment, int nodeInLabel, long long int i
 
 void Fase::dfsUpdateM(int depth, int nodeLabel, long long int label)
 {
+  if (igtrie.isFinal(nodeLabel))
+    canonicalTypes[labelCanonicalType[label]]++;
+
   if (depth == K-1)
   {
     int next, cNodeLabel;
@@ -487,6 +506,9 @@ void Fase::dfsUpdateM(int depth, int nodeLabel, long long int label)
 
 void Fase::dfsUpdateM2(int depth, int searchNode, bool connected, int nodeLabel, long long int label)
 {
+  if (connected && igtrie.isFinal(nodeLabel))
+    canonicalTypes[labelCanonicalType[label]]++;
+
   if (depth == K-1)
   {
     int next, cNodeLabel;
@@ -559,10 +581,13 @@ void Fase::reduceCanonicalTypes()
     return;
 
   Isomorphism *iso = new Isomorphism();
-  iso->initNauty(K, directed);
+
   for (auto element : igtrie.enumerate(K))
+  {
+    iso->initNauty(element.second, directed);
     getSubgraphFrequency(element, iso);
-  iso->finishNauty();
+    iso->finishNauty();
+  }
 }
 
 int Fase::getTypes()
@@ -580,7 +605,7 @@ vector< pair<string, int> > Fase::subgraphCount(bool monitor)
       elem.second = 0;
 
     for (auto elem : igtrie.enumerate(K))
-      canonicalTypes[labelCanonicalType[elem.first]] += elem.second;
+      canonicalTypes[labelCanonicalType[elem.first.first]] += elem.first.second;
   }
 
   /*

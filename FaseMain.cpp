@@ -290,11 +290,9 @@ void finish(Fase* fase)
 
 void readSubgraph(Graph *g)
 {
-  char s[K*K+1];
-  for (int i=0; i!=K; ++i)
-    scanf("%s", &s[i*K]);
-
-  GraphUtils::strToGraph(g, s, K, dir);
+  string s;
+  cin >> s;
+  GraphUtils::strToGraph(g, s.c_str(), (int)sqrt(s.size() / 1.0), dir);
 }
 
 int main(int argc, char **argv)
