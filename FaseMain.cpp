@@ -288,11 +288,19 @@ void finish(Fase* fase)
   fclose(outFile);
 }
 
-void readSubgraph(Graph *g)
+bool readSubgraph(Graph *g)
 {
   string s;
   cin >> s;
-  GraphUtils::strToGraph(g, s.c_str(), (int)sqrt(s.size() / 1.0), dir);
+
+  int size = (int)sqrt(s.size() / 1.0);
+
+  if (size <= 2 || size > K) {
+    return false;
+  }
+
+  GraphUtils::strToGraph(g, s.c_str(), size, dir);
+  return true;
 }
 
 int main(int argc, char **argv)
@@ -312,16 +320,23 @@ int main(int argc, char **argv)
   // Subgraph input
   // TODO: input from file inside read() ?
   int ni;
+  Graph *g = NULL;
   scanf("%d", &ni);
   while (ni--) {
-    Graph *g = new GraphMatrix();
-    readSubgraph(g);
-    if (monitor2)
-      fase->setQuery2(g);
-    else
-      fase->setQuery(g);
-    delete g;
+    g = new GraphMatrix();
+    if (readSubgraph(g)) {
+      if (monitor2)
+        fase->setQuery2(g);
+      else
+        fase->setQuery(g);
+
+      delete g;
+      g = NULL;
+    }
   }
+
+  delete g;
+  g = NULL;
 
   /*
   Timer::start();
