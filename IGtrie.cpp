@@ -17,11 +17,15 @@ void IGtrie::init(int K)
   labelPaths = (int**) malloc(sizeof(int*) * maxLabels);
   labelLeaf = (int*) malloc(sizeof(int) * maxLabels);
   labelCount = (int*) malloc(sizeof(int) * maxLabels);
+  labelFinal = (bool*) malloc(sizeof(bool) * maxLabels);
 
   labelPaths[0] = new int[LB_WORD_SIZE];
   labelLeaf[0] = 1;
   labelCount[0] = 0;
-  memset(labelPaths[0], -1, sizeof(int) * LB_WORD_SIZE);
+  //memset(labelPaths[0], -1, sizeof(int) * LB_WORD_SIZE);
+  fill(labelPaths[0], labelPaths[0] + LB_WORD_SIZE, -1);
+
+  fill(labelFinal, labelFinal + maxLabels, false);
 }
 
 void IGtrie::destroy()
@@ -46,6 +50,8 @@ void IGtrie::expand()
   labelPaths = (int**) realloc(labelPaths, sizeof(int*) * maxLabels);
   labelLeaf = (int*) realloc(labelLeaf, sizeof(int) * maxLabels);
   labelCount = (int*) realloc(labelCount, sizeof(int) * maxLabels);
+  labelFinal = (bool*) realloc(labelFinal, sizeof(bool) * maxLabels);
+  fill(labelFinal + maxLabels/2, labelFinal + maxLabels, false);
 }
 
 void IGtrie::incrementLabel(int labelNode, int value)
@@ -67,7 +73,8 @@ int IGtrie::insertLabel(int labelNode, long long int label, int digits, bool cre
 
     int newNode = numLabels++;
     labelPaths[newNode] = new int[LB_WORD_SIZE];
-    memset(labelPaths[newNode], -1, sizeof(int) * LB_WORD_SIZE);
+    //memset(labelPaths[newNode], -1, sizeof(int) * LB_WORD_SIZE);
+    fill(labelPaths[newNode], labelPaths[newNode] + LB_WORD_SIZE, -1);
     labelPaths[labelNode][label & (LB_WORD_SIZE - 1)] = newNode;
     labelLeaf[newNode] = ((digits <= LB_WORD_LEN) ? digits : 0);
     labelCount[newNode] = 0;
@@ -80,21 +87,34 @@ int IGtrie::insertLabel(int labelNode, long long int label, int digits, bool cre
   return nextNode;
 }
 
-vector<pair<long long int, int> > IGtrie::enumerate(int K)
+void IGtrie::setFinal(int labelNode)
+{
+  labelFinal[labelNode] = true;
+}
+
+bool IGtrie::isFinal(int labelNode)
+{
+  return labelFinal[labelNode];
+}
+
+vector< pair<pair<long long int, int>, int> > IGtrie::enumerate(int K)
 {
   enumeration.clear();
-  enumerateFrom(0, 0, 0, 0, K - 1);
+  enumerateFrom(0, 0, 0, 0, K - 1, K);
 
   return enumeration;
 }
 
-void IGtrie::enumerateFrom(int currentNode, long long int label, long long int parLabel, int parSize, int remaining)
+void IGtrie::enumerateFrom(int currentNode, long long int label, long long int parLabel, int parSize, int remaining, int K)
 {
   if (remaining == 0)
   {
-    enumeration.push_back(make_pair(label, labelCount[currentNode]));
+    enumeration.push_back(make_pair(make_pair(label, labelCount[currentNode]), K));
     return;
   }
+
+  if (isFinal(currentNode))
+    enumeration.push_back(make_pair(make_pair(label, labelCount[currentNode]), K-remaining));
 
   int i;
   for (i = 0; i < LB_WORD_SIZE; i++)
@@ -108,14 +128,14 @@ void IGtrie::enumerateFrom(int currentNode, long long int label, long long int p
         int digits = labelLeaf[labelPaths[currentNode][i]];
         tmpLabel |= (i << tmpSize);
         tmpSize += digits;
-        enumerateFrom(labelPaths[currentNode][i], ((label << tmpSize) | tmpLabel), 0, 0, remaining - 1);
+        enumerateFrom(labelPaths[currentNode][i], ((label << tmpSize) | tmpLabel), 0, 0, remaining - 1, K);
       }
       else
       {
         int digits = LB_WORD_LEN;
         tmpLabel |= (i << tmpSize);
         tmpSize += digits;
-        enumerateFrom(labelPaths[currentNode][i], label, tmpLabel, tmpSize, remaining);
+        enumerateFrom(labelPaths[currentNode][i], label, tmpLabel, tmpSize, remaining, K);
       }
     }
 }

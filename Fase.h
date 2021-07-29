@@ -30,7 +30,7 @@ class Fase
   void reduceCanonicalTypes();
   void expandEnumeration(int depth, int labelNode, long long int label);
   void expandQueryEnumeration(int, int, Graph*);
-  void getSubgraphFrequency(pair<long long int, int> element, Isomorphism* iso);
+  void getSubgraphFrequency(pair<pair<long long int, int>, int> element, Isomorphism* iso);
   void dfsUpdate(int, bool, int, long long int, int, long long int);
   void dfsUpdateM(int, int, long long int);
   void dfsUpdateM2(int, int, bool, int, long long int);
