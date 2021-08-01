@@ -100,7 +100,7 @@ void Fase::updateCensus(int u, int v, bool increment)
   exLabel = (!directed) ? 0 : 2 * graph->hasEdge(v, u);
   nodeExLabel = igtrie.insertLabel(0, exLabel, Label::repDigits(1), false);
 
-  dfsUpdate(2, increment, nodeInLabel, inLabel, nodeExLabel, exLabel);
+  dfsUpdate(2, increment, nodeInLabel, nodeExLabel);
 
   if (!increment)
   {
@@ -344,7 +344,7 @@ void Fase::expandQueryEnumeration(int depth, int nodeLabel, Graph* g)
   }
 }
 
-void Fase::dfsUpdate(int depth, bool increment, int nodeInLabel, long long int inLabel, int nodeExLabel, long long int exLabel)
+void Fase::dfsUpdate(int depth, bool increment, int nodeInLabel, int nodeExLabel)
 {
   if (nodeInLabel != -1 && igtrie.isFinal(nodeInLabel))
   {
@@ -397,7 +397,7 @@ void Fase::dfsUpdate(int depth, bool increment, int nodeInLabel, long long int i
   }
 
   int next, cNodeInLabel, cNodeExLabel;
-  long long int cLabel, cInPath, cExPath;
+  long long int cLabel;
 
   for (int i=0; i!=vextSz[depth]; ++i)
     vext[depth+1][i] = vext[depth][i];
@@ -410,17 +410,13 @@ void Fase::dfsUpdate(int depth, bool increment, int nodeInLabel, long long int i
 
     cLabel = Label::updateLabel(vsub, next, depth);
 
+    cNodeInLabel = cNodeExLabel = -1;
+
     if (nodeInLabel != -1)
-    {
       cNodeInLabel = igtrie.insertLabel(nodeInLabel, cLabel, Label::repDigits(depth), false);
-      cInPath = (inLabel << Label::repDigits(depth)) | cLabel;
-    }
 
     if (nodeExLabel != -1)
-    {
       cNodeExLabel = igtrie.insertLabel(nodeExLabel, cLabel, Label::repDigits(depth), false);
-      cExPath = (exLabel << Label::repDigits(depth)) | cLabel;
-    }
 
     // we skip the current iteration unless we are interested
     // in at least one of the enumeration paths
@@ -438,7 +434,7 @@ void Fase::dfsUpdate(int depth, bool increment, int nodeInLabel, long long int i
         vext[depth+1][vextSz[depth+1]++] = w;
     }
 
-    dfsUpdate(depth+1, increment, cNodeInLabel, cInPath, cNodeExLabel, cExPath);
+    dfsUpdate(depth+1, increment, cNodeInLabel, cNodeExLabel);
   }
 }
 

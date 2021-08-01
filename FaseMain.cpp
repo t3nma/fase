@@ -345,9 +345,11 @@ int main(int argc, char **argv)
   output(fase);
   */
 
-  fase->runCensus();
-  if (!(monitor || monitor2))
+  // initial census & output if census mode
+  if (!(monitor || monitor2)) {
+    fase->runCensus();
     outputOccur(fase);
+  }
 
   FILE *f = fopen(ufilename, "r");
   if (!f)
