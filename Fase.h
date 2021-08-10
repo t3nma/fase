@@ -31,7 +31,7 @@ class Fase
   void expandEnumeration(int depth, int labelNode, long long int label);
   void expandQueryEnumeration(int, int, Graph*);
   void getSubgraphFrequency(pair<pair<long long int, int>, int> element, Isomorphism* iso);
-  void dfsUpdate(int, bool, int, int);
+  void dfsUpdate(int, bool, int, long long int, int, long long int);
   void dfsUpdateM(int, int, long long int);
   void dfsUpdateM2(int, int, bool, int, long long int);
 
@@ -41,6 +41,7 @@ class Fase
 
   int getTypes();
   void runCensus();
+  void setupMonitor();
   void updateCensus(int, int, bool);
   void monitor(int, int, bool);
   void monitor2(int, int, bool);

@@ -39,6 +39,12 @@ void Fase::initSampling(int sz, double* _sampProb)
   sampling = true;
 }
 
+void Fase::setupMonitor()
+{
+  reduceCanonicalTypes();
+  Label::init(graph, directed);
+}
+
 void Fase::runCensus()
 {
   motifCount = 0;
@@ -70,15 +76,32 @@ void Fase::updateCensus(int u, int v, bool increment)
   int nodeInLabel, nodeExLabel;
   long long int inLabel, exLabel;
 
+  vsub[0] = u;
+  vsub[1] = v;
+
   if (increment)
   {
+    exLabel = Label::updateLabel(vsub, v, 1);
+
     graph->addEdge(u, v);
     if (!directed)
       graph->addEdge(v, u);
+
+    inLabel = Label::updateLabel(vsub, v, 1);
+  }
+  else
+  {
+    inLabel = Label::updateLabel(vsub, v, 1);
+
+    graph->rmEdge(u, v);
+    if (!directed)
+      graph->rmEdge(v, u);
+
+    exLabel = Label::updateLabel(vsub, v, 1);
   }
 
-  vsub[0] = u;
-  vsub[1] = v;
+  nodeInLabel = igtrie.insertLabel(0, inLabel, Label::repDigits(1), false);
+  nodeExLabel = igtrie.insertLabel(0, exLabel, Label::repDigits(1), false);
 
   vextSz[2] = 0;
 
@@ -95,19 +118,7 @@ void Fase::updateCensus(int u, int v, bool increment)
       vext[2][vextSz[2]++] = w;
   }
 
-  inLabel = Label::updateLabel(vsub, v, 1);
-  nodeInLabel = igtrie.insertLabel(0, inLabel, Label::repDigits(1), false);
-  exLabel = (!directed) ? 0 : 2 * graph->hasEdge(v, u);
-  nodeExLabel = igtrie.insertLabel(0, exLabel, Label::repDigits(1), false);
-
-  dfsUpdate(2, increment, nodeInLabel, nodeExLabel);
-
-  if (!increment)
-  {
-    graph->rmEdge(u, v);
-    if (!directed)
-      graph->rmEdge(v, u);
-  }
+  dfsUpdate(2, increment, nodeInLabel, inLabel, nodeExLabel, exLabel);
 }
 
 /*
@@ -118,7 +129,7 @@ void Fase::monitor(int u, int v, bool increment)
   int nodeLabel;
   long long int label;
 
-  reduceCanonicalTypes();
+  // reset subgraph counters
   for (auto& elem: canonicalTypes)
     elem.second = 0;
 
@@ -161,7 +172,7 @@ void Fase::monitor(int u, int v, bool increment)
 
 void Fase::monitor2(int u, int v, bool increment)
 {
-  reduceCanonicalTypes();
+  // reset subgraph counters
   for (auto& elem: canonicalTypes)
     elem.second = 0;
 
@@ -194,78 +205,71 @@ void Fase::monitor2(int u, int v, bool increment)
   dfsUpdateM2(1, vsub[K-1], false, 0, 0LL);
 }
 
-void Fase::expandEnumeration(int depth, int labelNode, long long int label)
+void Fase::expandEnumeration(int depth, int labelNode, long long int path)
 {
   if (igtrie.isFinal(labelNode))
-    igtrie.incrementLabel(labelNode, 1);
+    canonicalTypes[ labelCanonicalType[path] ]++;
 
   if (depth == K - 1)
   {
-    long long int clabel;
-    int clabelNode;
+    long long int clabel, cpath;
+    int currentVertex, clabelNode;
 
     while (vextSz[depth])
     {
-      int currentVertex = vext[depth][--vextSz[depth]];
+      currentVertex = vext[depth][--vextSz[depth]];
 
-      if (!sampling || Random::testProb(sampProb[depth]))
+      clabel = Label::updateLabel(vsub, currentVertex, depth);
+      clabelNode = igtrie.insertLabel(labelNode, clabel, Label::repDigits(depth), false);
+
+      if (clabelNode != -1)
       {
-        clabel = Label::updateLabel(vsub, currentVertex, depth);
-        clabelNode = igtrie.insertLabel(labelNode, clabel, Label::repDigits(depth), false);
-
-        if (clabelNode != -1)
-        {
-          igtrie.incrementLabel(clabelNode, 1);
-          motifCount++;
-        }
+        cpath = (path << Label::repDigits(depth)) | clabel;
+        canonicalTypes[ labelCanonicalType[cpath] ]++;
+        motifCount++;
       }
     }
 
     return;
   }
 
-  int i, j;
-  long long int clabel = label;
-  int clabelNode = labelNode;
+  int i, j, currentVertex, clabelNode = -1;
+  long long int clabel, cpath;
 
   for (i = 0; i < vextSz[depth]; i++)
     vext[depth + 1][i] = vext[depth][i];
 
   while (vextSz[depth])
   {
-    int currentVertex = vext[depth][--vextSz[depth]];
+    currentVertex = vext[depth][--vextSz[depth]];
 
-    if (!sampling || Random::testProb(sampProb[depth]))
+    vextSz[depth + 1] = vextSz[depth];
+    vsub[depth] = currentVertex;
+
+    clabel = Label::updateLabel(vsub, currentVertex, depth);
+    clabelNode = igtrie.insertLabel(labelNode, clabel, Label::repDigits(depth), false);
+
+    // keep expanding unless we're not interested
+    // in the current path
+    if (clabelNode == -1)
+      continue;
+
+    cpath = (path << Label::repDigits(depth)) | clabel;
+
+    for (int w: *graph->neighbours(currentVertex))
     {
-      vextSz[depth + 1] = vextSz[depth];
-      vsub[depth] = currentVertex;
-
-      if (depth >= 1)
-      {
-        clabel = Label::updateLabel(vsub, currentVertex, depth);
-        clabelNode = igtrie.insertLabel(labelNode, clabel, Label::repDigits(depth), false);
-      }
-
-      // keep expanding unless we're not interested
-      // in the current path
-      if (clabelNode == -1)
+      if (w <= vsub[0])
         continue;
 
-      for (int w: *graph->neighbours(currentVertex))
-      {
-        if (w <= vsub[0])
-          continue;
+      for (j = 0; j < depth; j++)
+        if (w == vsub[j] || graph->isConnected(w, vsub[j]))
+          break;
 
-        for (j = 0; j < depth; j++)
-          if (w == vsub[j] || graph->isConnected(w, vsub[j]))
-            break;
-
-        if (j == depth)
-          vext[depth + 1][vextSz[depth + 1]++] = w;
-      }
-
-      expandEnumeration(depth + 1, clabelNode, clabel);
+      if (j == depth)
+        vext[depth + 1][vextSz[depth + 1]++] = w;
     }
+
+    expandEnumeration(depth + 1, clabelNode, cpath);
   }
 }
 
@@ -295,12 +299,14 @@ void Fase::expandQueryEnumeration(int depth, int nodeLabel, Graph* g)
     while (vextSz[depth])
     {
       next = vext[depth][--vextSz[depth]];
+      vsub[depth] = next;
 
       if (next == -1)
         continue;
 
       label = Label::updateLabel(vsub, next, depth);
-      cNodeLabel = igtrie.insertLabel(nodeLabel, label, Label::repDigits(depth), true);
+      cNodeLabel = igtrie.insertLabel(nodeLabel, label, Label::repDigits(depth));
+
       igtrie.setFinal(cNodeLabel);
     }
     return;
@@ -344,30 +350,22 @@ void Fase::expandQueryEnumeration(int depth, int nodeLabel, Graph* g)
   }
 }
 
-void Fase::dfsUpdate(int depth, bool increment, int nodeInLabel, int nodeExLabel)
+void Fase::dfsUpdate(int depth, bool increment, int nodeInLabel, long long int inPath, int nodeExLabel, long long int exPath)
 {
   if (nodeInLabel != -1 && igtrie.isFinal(nodeInLabel))
-  {
-    igtrie.incrementLabel(nodeInLabel, 1 - 2*!increment);
-    motifCount += 1 - 2*!increment;
-  }
+    canonicalTypes[ labelCanonicalType[inPath] ] += 1 - 2*!increment;
 
   if (nodeExLabel != -1 && igtrie.isFinal(nodeExLabel))
-  {
-    igtrie.incrementLabel(nodeExLabel, 1 - 2*increment);
-    motifCount += 1 - 2*increment;
-  }
+    canonicalTypes[ labelCanonicalType[exPath] ] += 1 - 2*increment;
 
   if (depth == K-1)
   {
     int next, cNodeInLabel, cNodeExLabel;
-    long long int cLabel;
+    long long int cLabel, cInPath, cExPath;
 
     while (vextSz[depth])
     {
       next = vext[depth][--vextSz[depth]];
-      vsub[depth] = next;
-
       cLabel = Label::updateLabel(vsub, next, depth);
 
       if (nodeInLabel != -1)
@@ -376,8 +374,8 @@ void Fase::dfsUpdate(int depth, bool increment, int nodeInLabel, int nodeExLabel
 
         if (cNodeInLabel != -1)
         {
-          igtrie.incrementLabel(cNodeInLabel, 1 - 2*!increment);
-          motifCount += 1 - 2*!increment;
+          cInPath = (inPath << Label::repDigits(depth)) | cLabel;
+          canonicalTypes[ labelCanonicalType[cInPath] ] += 1 - 2*!increment;
         }
       }
 
@@ -387,8 +385,8 @@ void Fase::dfsUpdate(int depth, bool increment, int nodeInLabel, int nodeExLabel
 
         if (cNodeExLabel != -1)
         {
-          igtrie.incrementLabel(cNodeExLabel, 1 - 2*increment);
-          motifCount += 1 - 2*increment;
+          cExPath = (exPath << Label::repDigits(depth)) | cLabel;
+          canonicalTypes[ labelCanonicalType[cExPath] ] += 1 - 2*increment;
         }
       }
     }
@@ -396,8 +394,8 @@ void Fase::dfsUpdate(int depth, bool increment, int nodeInLabel, int nodeExLabel
     return;
   }
 
-  int next, cNodeInLabel, cNodeExLabel;
-  long long int cLabel;
+  int next, cNodeInLabel = nodeInLabel, cNodeExLabel = nodeExLabel;
+  long long int cLabel, cInPath, cExPath;
 
   for (int i=0; i!=vextSz[depth]; ++i)
     vext[depth+1][i] = vext[depth][i];
@@ -410,13 +408,17 @@ void Fase::dfsUpdate(int depth, bool increment, int nodeInLabel, int nodeExLabel
 
     cLabel = Label::updateLabel(vsub, next, depth);
 
-    cNodeInLabel = cNodeExLabel = -1;
-
     if (nodeInLabel != -1)
+    {
       cNodeInLabel = igtrie.insertLabel(nodeInLabel, cLabel, Label::repDigits(depth), false);
+      cInPath = (inPath << Label::repDigits(depth)) | cLabel;
+    }
 
     if (nodeExLabel != -1)
+    {
       cNodeExLabel = igtrie.insertLabel(nodeExLabel, cLabel, Label::repDigits(depth), false);
+      cExPath = (exPath << Label::repDigits(depth)) | cLabel;
+    }
 
     // we skip the current iteration unless we are interested
     // in at least one of the enumeration paths
@@ -434,7 +436,7 @@ void Fase::dfsUpdate(int depth, bool increment, int nodeInLabel, int nodeExLabel
         vext[depth+1][vextSz[depth+1]++] = w;
     }
 
-    dfsUpdate(depth+1, increment, cNodeInLabel, cNodeExLabel);
+    dfsUpdate(depth+1, increment, cNodeInLabel, cInPath, cNodeExLabel, cExPath);
   }
 }
 
@@ -451,6 +453,7 @@ void Fase::dfsUpdateM(int depth, int nodeLabel, long long int label)
     while (vextSz[depth])
     {
       next = vext[depth][--vextSz[depth]];
+
       cLabel = Label::updateLabel(vsub, next, depth);
       cNodeLabel = igtrie.insertLabel(nodeLabel, cLabel, Label::repDigits(depth), false);
 
@@ -464,7 +467,7 @@ void Fase::dfsUpdateM(int depth, int nodeLabel, long long int label)
     return;
   }
 
-  int next, cNodeLabel;
+  int next, cNodeLabel = nodeLabel;
   long long int cLabel, cPath;
 
   for (int i=0; i!=vextSz[depth]; ++i)
@@ -477,8 +480,12 @@ void Fase::dfsUpdateM(int depth, int nodeLabel, long long int label)
     vextSz[depth+1] = vextSz[depth];
 
     cLabel = Label::updateLabel(vsub, next, depth);
-    cNodeLabel = igtrie.insertLabel(nodeLabel, cLabel, Label::repDigits(depth), false);
-    cPath = (label << Label::repDigits(depth)) | cLabel;
+
+    if (nodeLabel != -1)
+    {
+      cNodeLabel = igtrie.insertLabel(nodeLabel, cLabel, Label::repDigits(depth), false);
+      cPath = (label << Label::repDigits(depth)) | cLabel;
+    }
 
     // we skip the current iteration unless we are
     // interested in the enumeration path
@@ -514,6 +521,8 @@ void Fase::dfsUpdateM2(int depth, int searchNode, bool connected, int nodeLabel,
     {
       next = vext[depth][--vextSz[depth]];
 
+      // proceed only if the subgraph is connected or
+      // the next node is the one that connects it
       if (!connected && next != searchNode)
         continue;
 
@@ -543,18 +552,21 @@ void Fase::dfsUpdateM2(int depth, int searchNode, bool connected, int nodeLabel,
   while (vextSz[depth])
   {
     next = vext[depth][--vextSz[depth]];
+
     vsub[depth] = next;
     vextSz[depth+1] = vextSz[depth];
+
     _connected = connected || (next == searchNode);
 
     cLabel = Label::updateLabel(vsub, next, depth);
     cNodeLabel = igtrie.insertLabel(nodeLabel, cLabel, Label::repDigits(depth), false);
-    cPath = (label << Label::repDigits(depth)) | cLabel;
 
     // we skip the current iteration unless we are
     // interested in the enumeration path
     if (cNodeLabel == -1)
       continue;
+
+    cPath = (label << Label::repDigits(depth)) | cLabel;
 
     for (int w: *graph->neighbours(next))
     {
@@ -594,31 +606,15 @@ int Fase::getTypes()
 
 vector< pair<string, int> > Fase::subgraphCount(bool monitor)
 {
-  // reset and update counts from igtrie if not in monitor mode
-  if (!monitor)
-  {
-    for (auto& elem: canonicalTypes)
-      elem.second = 0;
-
-    for (auto elem : igtrie.enumerate(K))
-      canonicalTypes[labelCanonicalType[elem.first.first]] += elem.first.second;
-  }
-
-  /*
-  vector<pair<int, string> > subgraphVector;
-  for (auto element : canonicalTypes)
-    subgraphVector.push_back(make_pair(element.second, element.first));
-
-  sort(subgraphVector.begin(), subgraphVector.end());
-  reverse(subgraphVector.begin(), subgraphVector.end());
-
-  return subgraphVector;
-  */
+  motifCount = 0;
 
   vector< pair<string, int> > ret;
   for (auto elem: canonicalTypes)
     if (!monitor || elem.second > 0)
+    {
       ret.push_back({elem.first, elem.second});
+      motifCount += elem.second;
+    }
 
   return ret;
 }

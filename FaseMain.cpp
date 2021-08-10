@@ -271,14 +271,21 @@ void output(Fase* fase)
 void outputOccur(Fase *fase, int u = -1, int v = -1, bool increment = true)
 {
   FILE *f = outFile;
+  bool isMonitor = monitor || monitor2;
+  auto counters = fase->subgraphCount(isMonitor);
+  int motifCount = fase->getMotifCount();
 
   if (u == -1)
-    fprintf(f, "census:\n");
+    fprintf(f, "census: ");
   else
-    fprintf(f, "%c(%d,%d):\n", "-+"[increment], u, v);
+    fprintf(f, "%c(%d,%d): ", "-+"[increment], u, v);
 
-  for (auto elem : fase->subgraphCount(monitor || monitor2))
+  fprintf(f, "%d occurrences\n", motifCount);
+
+  for (auto elem : fase->subgraphCount(isMonitor))
     fprintf(f, "%s: %d\n", elem.first.c_str(), elem.second);
+
+  fprintf(f, "\n");
 }
 
 void finish(Fase* fase)
@@ -345,8 +352,9 @@ int main(int argc, char **argv)
   output(fase);
   */
 
-  // initial census & output if census mode
-  if (!(monitor || monitor2)) {
+  if (monitor || monitor2) {
+    fase->setupMonitor();
+  } else {
     fase->runCensus();
     outputOccur(fase);
   }
