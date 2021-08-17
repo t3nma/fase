@@ -282,7 +282,7 @@ void outputOccur(Fase *fase, int u = -1, int v = -1, bool increment = true)
 
   fprintf(f, "%d occurrences\n", motifCount);
 
-  for (auto elem : fase->subgraphCount(isMonitor))
+  for (auto elem : counters)
     fprintf(f, "%s: %d\n", elem.first.c_str(), elem.second);
 
   fprintf(f, "\n");
