@@ -19,8 +19,14 @@ char ofilename [200];
 FILE *outFile;
 time_t t_start, t_end;
 
+double stats_gtrie_time = .0;           // subgraph insertion time
+double stats_avg_update_time = .0;      // update processing avg. time
+double stats_total_time = .0;           // total computation time
+long long int stats_subgraph_count = 0; // total number of reported occurrences
+
 void init()
 {
+  /*
   printf("  88888888888           ad88888ba   88888888888  \n"
          "  88                   d8\"     \"8b  88           \n"
          "  88                   Y8,          88           \n"
@@ -32,6 +38,7 @@ void init()
          "\tVersion: 1.0\n"
          "FaSE - Fast Subgraph Enumeration (with Sampling)\n"
          "\n\n\tPedro {Paredes, Ribeiro} - DCC/FCUP\n\n\n\n\n");
+  */
   t_start = time(0);
 }
 
@@ -282,7 +289,7 @@ void outputOccur(Fase *fase, int u = -1, int v = -1, bool increment = true)
 
   fprintf(f, "%d occurrences\n", motifCount);
 
-  for (auto elem : fase->subgraphCount(isMonitor))
+  for (auto elem : counters)
     fprintf(f, "%s: %d\n", elem.first.c_str(), elem.second);
 
   fprintf(f, "\n");
@@ -326,6 +333,8 @@ int main(int argc, char **argv)
 
   // Subgraph input
   // TODO: input from file inside read() ?
+  Timer::start();
+
   int ni;
   Graph *g = NULL;
   scanf("%d", &ni);
@@ -341,9 +350,11 @@ int main(int argc, char **argv)
       g = NULL;
     }
   }
+  delete g; g = NULL;
 
-  delete g;
-  g = NULL;
+  Timer::stop();
+  stats_gtrie_time += Timer::elapsed();
+  stats_total_time += stats_gtrie_time;
 
   /*
   Timer::start();
@@ -355,8 +366,11 @@ int main(int argc, char **argv)
   if (monitor || monitor2) {
     fase->setupMonitor();
   } else {
+    Timer::start();
     fase->runCensus();
-    outputOccur(fase);
+    Timer::stop();
+    stats_total_time += Timer::elapsed();
+    // outputOccur(fase);
   }
 
   FILE *f = fopen(ufilename, "r");
@@ -367,13 +381,19 @@ int main(int argc, char **argv)
   int u, v, V = G->numNodes();
   bool inc;
 
+  int num_updates = 0;
+
+  Timer::start();
+
   while (fscanf(f, "%c %d %d\n", &op, &u, &v) == 3) {
+    num_updates++;
+
     u -= zeroBased;
     v -= zeroBased;
 
     if (op != 'A' && op != 'R')
     {
-      cout << "Unknown stream command '" << op << "'\n";
+      // cout << "Unknown stream command '" << op << "'\n";
       continue;
     }
     else
@@ -381,7 +401,7 @@ int main(int argc, char **argv)
 
     if (u >= V || v >= V)
     {
-      cout << "Edge (" << u << "," << v << ") exceeds graph size\n";
+      // cout << "Edge (" << u << "," << v << ") exceeds graph size\n";
       continue;
     }
 
@@ -389,7 +409,7 @@ int main(int argc, char **argv)
          (inc && G->hasEdge(u, v)) ||
          (!inc && !G->hasEdge(u, v)) )
     {
-      cout << "Irrelevant (" << u << "," << v << ") update\n";
+      // cout << "Irrelevant (" << u << "," << v << ") update\n";
       continue;
     }
 
@@ -400,10 +420,25 @@ int main(int argc, char **argv)
     else
       fase->updateCensus(u, v, inc);
 
-    outputOccur(fase, u, v, inc);
+    fase->subgraphCount(monitor || monitor2); // need this call to compute motifCount
+    stats_subgraph_count += fase->getMotifCount();
+
+    // outputOccur(fase, u, v, inc);
   }
 
+  Timer::stop();
+
+  stats_total_time += Timer::elapsed();
+  stats_avg_update_time = stats_total_time / num_updates;
+
   fclose(f);
+
+  f = outFile;
+  fprintf(f, "Total computation time (s): %.10lf\n", stats_total_time);
+  fprintf(f, "G-Trie computation time (s): %.10lf\n", stats_gtrie_time);
+  fprintf(f, "Avg. processing time per update (s): %.10lf\n", stats_avg_update_time);
+  fprintf(f, "Total number of reported subgraphs: %lld\n", stats_subgraph_count);
+
   finish(fase);
 
   return 0;
