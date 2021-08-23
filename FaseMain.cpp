@@ -217,10 +217,11 @@ void initSamplingProbabilities(Fase* fase)
     prob = 1.0;
 }
 
-void output(Fase* fase)
+void output(Fase* fase, int u = -1, int v = -1, bool increment = false)
 {
-  printf("Finished Calculating\n");
+  // printf("Finished Calculating\n");
   FILE *f = outFile;
+  /*
   fprintf(f, "\tOutput:\n");
   fprintf(f, "Network: %s\n", ifilename);
   fprintf(f, "Stream: %s\n", ufilename);
@@ -239,35 +240,31 @@ void output(Fase* fase)
 ", tm_start->tm_hour, tm_start->tm_min, tm_start->tm_sec, tm_start->tm_mday, tm_start->tm_mon + 1, 1900 + tm_start->tm_year);
   struct tm *tm_end   = localtime(&t_end);
   fprintf(f, "End of Computation: %02dh%02dm%02ds %02d/%02d/%02d\n", tm_end->tm_hour, tm_end->tm_min, tm_end->tm_sec, tm_end->tm_mday, tm_end->tm_mon + 1, 1900 + tm_end->tm_year);
+  */
+  //fprintf(f, "\n\n\tResults:\n");
 
-  fprintf(f, "\n\n\tResults:\n");
-  fprintf(f, "Subgraph Occurrences: %lld\n", (long long int)(fase->getMotifCount() / prob));
-  fprintf(f, "Subgraph Types: %d\n", fase->getTypes());
-  fprintf(f, "Computation Time (ms): %0.4lf\n", Timer::elapsed() * 1000);
-
-  if (fabs(prob - 1.0) <= 10e-7)
-    fprintf(f, "\nExact Enumeration, no Sampling done\n");
-  else
+  if (detailed)
   {
-    fprintf(f, "\n\tSampling Information:\n");
-    fprintf(f, "Percentage of Sampled Subgraphs: %0.2lf\%\n", 100 * prob);
-    fprintf(f, "Percentage by depth:\n");
-    int i;
-    for (i = 0; i < K; i++)
-      fprintf(f, "P[%d]: %0.3lf\%\n", i, 100 * sampProb[i]);
+    if (u == -1)
+      fprintf(f, "Census\n");
+    else
+      fprintf(f, "Update %c(%d,%d)\n", "+-"[!increment], u, v);
   }
+
+  fprintf(f, "Subgraph Occurrences: %lld\n", fase->getMotifCount());
+  // fprintf(f, "Subgraph Types: %d\n", fase->getTypes());
+  // fprintf(f, "Computation Time (ms): %0.4lf\n", Timer::elapsed() * 1000);
 
   if (detailed)
   {
     fprintf(f, "\n\tDetailed Output:\n");
-    for (auto element : fase->subgraphCount(monitor || monitor2))
-      if (samp && fabs(prob) > 10e-7)
-        fprintf(f, "%s: %d occurrences\n", element.first.c_str(), (int)(element.second / prob));
-      else
-        fprintf(f, "%s: %d occurrences\n", element.first.c_str(), element.second);
+    for (auto element : fase->subgraphCount())
+      fprintf(f, "%s: %d occurrences\n", element.second.c_str(), element.first);
+    fprintf(f, "\n");
   }
 }
 
+/*
 void outputOccur(Fase *fase, int u = -1, int v = -1, bool increment = true)
 {
   FILE *f = outFile;
@@ -287,6 +284,7 @@ void outputOccur(Fase *fase, int u = -1, int v = -1, bool increment = true)
 
   fprintf(f, "\n");
 }
+*/
 
 void finish(Fase* fase)
 {
@@ -345,18 +343,11 @@ int main(int argc, char **argv)
   delete g;
   g = NULL;
 
-  /*
-  Timer::start();
-  fase->runCensus();
-  Timer::stop();
-  output(fase);
-  */
+  fase->setup();
 
-  if (monitor || monitor2) {
-    fase->setupMonitor();
-  } else {
+  if (!(monitor || monitor2)) {
     fase->runCensus();
-    outputOccur(fase);
+    output(fase);
   }
 
   FILE *f = fopen(ufilename, "r");
@@ -400,7 +391,8 @@ int main(int argc, char **argv)
     else
       fase->updateCensus(u, v, inc);
 
-    outputOccur(fase, u, v, inc);
+    // outputOccur(fase, u, v, inc);
+    output(fase, u, v, inc);
   }
 
   fclose(f);

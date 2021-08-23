@@ -100,7 +100,7 @@ bool IGtrie::isFinal(int labelNode)
   return labelFinal[labelNode];
 }
 
-vector< pair<pair<long long int, int>, int> > IGtrie::enumerate(int K)
+vector< pair< pair<int, long long int>, pair<int, int> > > IGtrie::enumerate(int K)
 {
   enumeration.clear();
   enumerateFrom(0, 0, 0, 0, K - 1, K);
@@ -112,12 +112,14 @@ void IGtrie::enumerateFrom(int currentNode, long long int label, long long int p
 {
   if (remaining == 0)
   {
-    enumeration.push_back(make_pair(make_pair(label, labelCount[currentNode]), K));
+    enumeration.push_back(make_pair(make_pair(currentNode, label),
+                                    make_pair(K, labelCount[currentNode])));
     return;
   }
 
   if (isFinal(currentNode))
-    enumeration.push_back(make_pair(make_pair(label, labelCount[currentNode]), K-remaining));
+    enumeration.push_back(make_pair(make_pair(currentNode, label),
+                                    make_pair(K-remaining, labelCount[currentNode])));
 
   int i;
   for (i = 0; i < LB_WORD_SIZE; i++)

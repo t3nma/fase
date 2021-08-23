@@ -15,10 +15,10 @@ class Fase
   bool sampling;
   Graph *graph;
   int K;
-  int motifCount;
+  long long int motifCount;
   IGtrie igtrie;
-  map<long long int, string> labelCanonicalType;
-  map<string, int> canonicalTypes;
+  map<int, string> canonicalTypes;
+  map<string, int> canonicalCounts;
 
   int** vext;
   int* vextSz;
@@ -28,12 +28,13 @@ class Fase
   char nauty_s[MAXMOTIF * MAXMOTIF + 1];
 
   void reduceCanonicalTypes();
-  void expandEnumeration(int depth, int labelNode, long long int label);
+  void expandEnumeration(int depth, int labelNode);
   void expandQueryEnumeration(int, int, Graph*);
-  void getSubgraphFrequency(pair<pair<long long int, int>, int> element, Isomorphism* iso);
-  void dfsUpdate(int, bool, int, long long int, int, long long int);
-  void dfsUpdateM(int, int, long long int);
-  void dfsUpdateM2(int, int, bool, int, long long int);
+  void getSubgraphFrequency(pair< pair<int, long long int>, pair<int, int> > element, Isomorphism* iso);
+  void dfsUpdate(int, bool, int, int);
+  void dfsUpdateM(int, int);
+  void dfsUpdateM2(int, int, bool, int);
+  void incrementCount(int, int);
 
  public:
   Fase(Graph*, bool, int);
@@ -41,15 +42,15 @@ class Fase
 
   int getTypes();
   void runCensus();
-  void setupMonitor();
   void updateCensus(int, int, bool);
   void monitor(int, int, bool);
   void monitor2(int, int, bool);
   void initSampling(int sz, double* _sampProb);
-  int getMotifCount() {return motifCount;}
-  vector< pair<string,int> > subgraphCount(bool);
+  long long int getMotifCount() {return motifCount;}
+  vector< pair<int,string> > subgraphCount();
   void setQuery(Graph*);
   void setQuery2(Graph*);
+  void setup();
 };
 
 #endif

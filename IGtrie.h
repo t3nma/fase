@@ -15,7 +15,7 @@ class IGtrie
   int* labelLeaf;
   int* labelCount;
   bool* labelFinal;
-  vector<pair<pair<long long int, int>, int> > enumeration;
+  vector<pair< pair<int, long long int>, pair<int,int> > > enumeration;
 
   void expand();
   void enumerateFrom(int currentNode, long long int label, long long int parLabel, int parSize, int remaining, int K);
@@ -31,7 +31,7 @@ class IGtrie
   int insertLabel(int labelNode, long long int label, int digits, bool createNew = true);
   void setFinal(int labelNode);
   bool isFinal(int labelNode);
-  vector<pair<pair<long long int, int>, int> > enumerate(int K);
+  vector<pair< pair<int, long long int>, pair<int,int> > > enumerate(int K);
 };
 
 #endif
