@@ -18,6 +18,7 @@ char ufilename [200];
 char ofilename [200];
 FILE *outFile;
 time_t t_start, t_end;
+Timer *local_timer = NULL, *global_timer = NULL;
 
 void init()
 {
@@ -33,6 +34,8 @@ void init()
          "FaSE - Fast Subgraph Enumeration (with Sampling)\n"
          "\n\n\tPedro {Paredes, Ribeiro} - DCC/FCUP\n\n\n\n\n");
   t_start = time(0);
+  global_timer = new Timer();
+  local_timer = new Timer();
 }
 
 void displayHelp()
@@ -254,6 +257,8 @@ void output(Fase* fase, int u = -1, int v = -1, bool increment = false)
   fprintf(f, "Subgraph Occurrences: %lld\n", fase->getMotifCount());
   // fprintf(f, "Subgraph Types: %d\n", fase->getTypes());
   // fprintf(f, "Computation Time (ms): %0.4lf\n", Timer::elapsed() * 1000);
+  fprintf(f, "Global Computation Time (ms): %0.4lf\n", global_timer->elapsed() * 1000);
+  fprintf(f, "Computation Time (ms): %0.6lf\n", local_timer->elapsed() * 1000);
 
   if (detailed)
   {
@@ -288,6 +293,8 @@ void outputOccur(Fase *fase, int u = -1, int v = -1, bool increment = true)
 
 void finish(Fase* fase)
 {
+  delete global_timer;
+  delete local_timer;
   delete fase;
   delete G;
   fclose(outFile);
@@ -322,6 +329,8 @@ int main(int argc, char **argv)
   Fase* fase = new Fase(G, dir, K);
   initSamplingProbabilities(fase);
 
+  global_timer->start();
+
   // Subgraph input
   // TODO: input from file inside read() ?
   int ni;
@@ -340,13 +349,18 @@ int main(int argc, char **argv)
     }
   }
 
+  global_timer->stop();
+
   delete g;
   g = NULL;
 
   fase->setup();
 
   if (!(monitor || monitor2)) {
+    local_timer->start();
     fase->runCensus();
+    local_timer->stop();
+    global_timer->stop();
     output(fase);
   }
 
@@ -384,12 +398,17 @@ int main(int argc, char **argv)
       continue;
     }
 
+    local_timer->start();
+
     if (monitor)
       fase->monitor(u, v, inc);
     else if (monitor2)
       fase->monitor2(u, v, inc);
     else
       fase->updateCensus(u, v, inc);
+
+    local_timer->stop();
+    global_timer->stop();
 
     // outputOccur(fase, u, v, inc);
     output(fase, u, v, inc);
