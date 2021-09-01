@@ -12,13 +12,13 @@ using namespace std;
 Graph *G;
 int K = 0, zeroBased = 1;
 double sampProb[MAXMOTIF], prob;
-bool dir = false, detailed = false, draw = false, samp = false, largeScale = false, monitor = false, monitor2 = false;
+bool dir = false, detailed = false, draw = false, samp = false, largeScale = false, monitor = false, monitor2 = false, debug = false;
 char ifilename [200];
 char ufilename [200];
 char ofilename [200];
 FILE *outFile;
 time_t t_start, t_end;
-Timer *local_timer = NULL, *global_timer = NULL;
+Timer *local_timer = NULL, *global_timer = NULL, *gtrie_timer = NULL;
 
 void init()
 {
@@ -34,8 +34,9 @@ void init()
          "FaSE - Fast Subgraph Enumeration (with Sampling)\n"
          "\n\n\tPedro {Paredes, Ribeiro} - DCC/FCUP\n\n\n\n\n");
   t_start = time(0);
-  global_timer = new Timer();
   local_timer = new Timer();
+  global_timer = new Timer();
+  gtrie_timer = new Timer();
 }
 
 void displayHelp()
@@ -96,6 +97,9 @@ void read(int argc, char **argv)
       check |= (1 << 1);
       continue;
     }
+
+    if (argv[i][1] == 't')
+      debug = true;
 
     if (argv[i][1] == 's')
     {
@@ -330,6 +334,7 @@ int main(int argc, char **argv)
   initSamplingProbabilities(fase);
 
   global_timer->start();
+  gtrie_timer->start();
 
   // Subgraph input
   // TODO: input from file inside read() ?
@@ -349,6 +354,7 @@ int main(int argc, char **argv)
     }
   }
 
+  gtrie_timer->stop();
   global_timer->stop();
 
   delete g;
@@ -412,6 +418,14 @@ int main(int argc, char **argv)
 
     // outputOccur(fase, u, v, inc);
     output(fase, u, v, inc);
+  }
+
+  global_timer->stop();
+
+  if (debug)
+  {
+    fprintf(outFile, "\nGlobal Computation Time (ms): %0.6lf\n", global_timer->elapsed() * 1000);
+    fprintf(outFile, "G-Trie Computation Time (ms): %0.6lf\n", gtrie_timer->elapsed() * 1000);
   }
 
   fclose(f);
